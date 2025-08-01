@@ -6,9 +6,10 @@
 
 This repository sets up the following git hooks:
 
+- `post-checkout`: to automate the process of executing the `setup-hooks.sh` script when the repository gets cloned
 - `commit-msg`: to validate locally that the commits messages follows the [Conventional Commits specification](https://www.conventionalcommits.org/en/v1.0.0/)
 
-## Upcoming
+## Nice-to-have non-functional requirements
 
 - [ ] Generate CHANGELOG.md automatically
 - [ ] Define tree structured with a Hexagonal Architecture approach

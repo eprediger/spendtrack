@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# post-checkout hook - run only on clone
+# Automatically sets up versioned hooks from .hooks directory
+# This runs after: git checkout, git clone, git worktree
+
+# Configuration
+SETUP_SCRIPT="setup-hooks.sh"
+HOOKS_DIR=".hooks"
+
+# Get hook arguments
+prev_head=$1
+new_head=$2
+branch_checkout=$3
+
+# Only run on branch checkouts (not file checkouts)
+# On clone, prev_head is all zeros
+if [ "$prev_head" = "0000000000000000000000000000000000000000" ] && [ "$branch_checkout" = "1" ]; then
+    # Check if setup script exists and .hooks directory exists
+    if [ -f "$SETUP_SCRIPT" ] && [ -d "$HOOKS_DIR" ]; then
+        echo "🔗 Setting up Git hooks from $HOOKS_DIR directory..."
+
+        # Make setup script executable if it isn't already
+        chmod +x "$SETUP_SCRIPT"
+
+        # Run the setup script
+        ./"$SETUP_SCRIPT"
+
+        echo "✅ Hook setup complete!"
+    else
+        echo "⚠️  Required files not found:"
+        [ ! -f "$SETUP_SCRIPT" ] && echo "   - $SETUP_SCRIPT (setup script)"
+        [ ! -d "$HOOKS_DIR" ] && echo "   - $HOOKS_DIR/ (hooks directory)"
+    fi
+else
+    echo "🔗 Checkout detected - hooks should be already installed, skipping setup"
+    echo "   If hooks are not present, run manually: ./$SETUP_SCRIPT"
+fi
+
+# Continue with normal post-checkout behavior
+exit 0

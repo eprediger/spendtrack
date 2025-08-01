@@ -1,5 +1,8 @@
 #!/bin/bash
 
+BOLD=$(tput bold)
+NORMAL=$(tput sgr0)
+
 # Regex to validate the type pattern
 REGEX="^((Merge[ a-z-]* branch.*)|(Revert*)|((build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\(.*\))?!?: .*))"
 
@@ -8,14 +11,15 @@ FILE=`cat $1` # File containing the commit message
 if ! [[ $FILE =~ $REGEX ]]; then
   echo "❌ Commit message does not follow Conventional Commits format."
   echo
-  echo "Expected format: type(scope): description"
+  echo "Expected format : ${BOLD}type(scope): description${NORMAL}"
+  echo "Received message: ${BOLD}$FILE${NORMAL}"
   echo
   echo "Examples:"
-  echo   "feat: add user authentication"
-  echo   "fix(auth): resolve login timeout"
-  echo   "docs: update installation guide"
+  echo "  - feat: add user authentication"
+  echo "  - fix(auth): resolve login timeout"
+  echo "  - docs: update installation guide"
   echo
-  echo "Valid types: feat, fix, docs, style, refactor, test, chore, perf, ci, build, revert"
+  echo "Valid types: ${BOLD}feat, fix, docs, style, refactor, test, chore, perf, ci, build, revert${NORMAL}"
 
 	exit 1
 else

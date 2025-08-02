@@ -1,4 +1,3 @@
-@todo
 Feature: Health check
   As a system admin
   I want to check the health of the app

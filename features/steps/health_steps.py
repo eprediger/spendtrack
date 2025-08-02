@@ -16,7 +16,7 @@ def step_impl(context):
     """
     :type context: behave.runner.Context
     """
-    context.response = context.client.get("/health")
+    context.response = context.client.get("/api/v1/health")
 
 
 @then("I should receive a healthy status")

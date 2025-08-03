@@ -1,4 +1,5 @@
-.PHONY: help build up down test lint coverage behave clean
+.PHONY: help build up start stop down logs shell install lint lint-ci lint-fix \
+		test test-ci coverage behave behave-ci test-all ci clean
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -9,10 +10,13 @@ help: ## Show this help message
 build: ## Build the Docker containers
 	docker-compose build
 
-up: ## Start the application
+up: ## Run the application containers
 	docker-compose up -d
 
-stop:
+start: ## Start the application
+	docker-compose start
+
+stop: ## Stop the application
 	docker-compose stop
 
 down: ## Stop the application and delete all artifacts
@@ -27,27 +31,41 @@ shell: ## Enter the application container
 install: ## Install dependencies
 	docker-compose exec app poetry install
 
-lint: ## Run linter
+lint: ## Run linter (interactive)
 	docker-compose exec app poetry run ruff check app/
 	docker-compose exec app poetry run ruff format --check app/
+
+lint-ci: ## Run linter (non-interactive, for CI/hooks)
+	docker-compose exec -T app poetry run ruff check app/
+	docker-compose exec -T app poetry run ruff format --check app/
 
 lint-fix: ## Fix linting issues
 	docker-compose exec app poetry run ruff check --fix app/
 	docker-compose exec app poetry run ruff format app/
 
-test: ## Run unit tests with coverage
+test: ## Run unit tests with coverage (interactive)
 	docker-compose exec app poetry run coverage run -m pytest
 	docker-compose exec app poetry run coverage report
 
+test-ci: ## Run unit tests with coverage (non-interactive, for CI/hooks)
+	docker-compose exec -T app poetry run coverage run -m pytest
+	docker-compose exec -T app poetry run coverage report
+
 coverage: ## Generate coverage report
 	docker-compose exec app poetry run coverage run -m pytest
+	docker-compose exec app poetry run coverage run -a -m behave
 	docker-compose exec app poetry run coverage report --show-missing
 	docker-compose exec app poetry run coverage html
 
 behave: ## Run BDD tests
 	docker-compose exec app poetry run behave --tags=~@todo
 
-test-all: lint test behave ## Run all tests and linting
+behave-ci: ## Run BDD tests (non-interactive, for CI/hooks)
+	docker-compose exec -T app poetry run behave --tags=~@todo
+
+test-all: lint test behave ## Run all tests and linting (interactive)
+
+ci: lint-ci test-ci behave-ci ## Run all tests and linting (non-interactive, for CI/hooks)
 
 clean: ## Clean up containers and volumes
 	docker-compose down -v

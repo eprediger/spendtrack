@@ -10,7 +10,6 @@ HOOKS_DIR=".hooks"
 
 # Get hook arguments
 prev_head=$1
-new_head=$2
 branch_checkout=$3
 
 # Only run on branch checkouts (not file checkouts)

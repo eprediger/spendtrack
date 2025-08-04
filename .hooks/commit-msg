@@ -30,3 +30,4 @@ else
 fi
 
 echo "${GREEN}✓ All checks passed. Proceeding with commit.${NORMAL}"
+echo

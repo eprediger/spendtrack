@@ -2,20 +2,24 @@
 
 BOLD=$(tput bold)
 NORMAL=$(tput sgr0)
+BLUE=$(tput setaf 4)
 RED=$(tput setaf 1)
 GREEN=$(tput setaf 2)
 
-echo "Running CI checks..."
+echo "${BLUE}Running CI checks...${NORMAL}"
 
 # Capture CI output and exit status (use non-interactive CI target)
 CI_OUTPUT=$(make ci 2>&1)
 CI_EXIT_CODE=$?
 
+echo
+echo "$CI_OUTPUT"
+echo
+
 if [ $CI_EXIT_CODE -ne 0 ]; then
   echo "${RED}❌ CI inspection failed${NORMAL}"
   echo
   echo "${BOLD}CI errors:${NORMAL}"
-  echo "$CI_OUTPUT"
   echo
   echo "Please fix the issues before committing."
   echo "For linter issues you can run '${BOLD}make lint-fix${NORMAL}' to automatically fix some issues."

@@ -6,7 +6,7 @@ Keep track of income, expense and savings for a healthy budget
 
 ## Prerequisites
 
-- Docker, Docker Compose or Python 3.11+
+- Docker, Docker Compose or Python 3.13+
 - Make (optional, for convenience commands)
 
 ### Git Hooks
@@ -102,7 +102,7 @@ testability, flexibility, maintainability and framework agnosticism
 **Code Style Rules**:
 - Line length: 88 characters
 - Import sorting and formatting
-- Python 3.11+ syntax enforcement
+- Python 3.13+ syntax enforcement
 - Comprehensive error checking
 
 ---

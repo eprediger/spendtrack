@@ -1,5 +1,5 @@
 # Use Python image
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -19,10 +19,11 @@ RUN apt update && \
 ENV POETRY_NO_INTERACTION=1 \
     POETRY_VENV_IN_PROJECT=1 \
     POETRY_CACHE_DIR=/tmp/poetry_cache \
-    POETRY_VERSION=1.8.1
+    POETRY_VERSION=2.1.3
 
 # Install Poetry
-RUN pip install poetry==${POETRY_VERSION}
+RUN curl -sSL https://install.python-poetry.org | python3 -
+ENV PATH="/root/.local/bin:$PATH"
 
 # Set work directory
 WORKDIR /app

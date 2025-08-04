@@ -44,7 +44,7 @@ lint-fix: ## Fix linting issues
 	docker-compose exec app poetry run ruff format app/
 
 test: ## Run unit tests with coverage (interactive)
-	docker-compose exec app poetry run coverage run -m pytest
+	docker-compose exec app poetry run -m pytest
 	docker-compose exec app poetry run coverage report
 
 test-ci: ## Run unit tests with coverage (non-interactive, for CI/hooks)

@@ -4,12 +4,18 @@ Keep track of income, expense and savings for a healthy budget
 
 ## Quick Start
 
+## Prerequisites
+
+- Docker, Docker Compose or Python 3.11+
+- Make (optional, for convenience commands)
+
 ### Git Hooks
 
 **This repository sets up the following git hooks:**
-- 
-- `post-checkout`: to automate the process of executing the `setup-hooks.sh` script when the repository gets cloned
-- `commit-msg`: to validate locally that the commits messages follows the [Conventional Commits specification](https://www.conventionalcommits.org/en/v1.0.0/)
+
+- `post-checkout`: automates the process of executing the `setup-hooks.sh` script when the repository gets cloned
+- `pre-commit`: verifies that the linter, unit and e2e tests run successfully
+- `commit-msg`: validates locally that the commits messages follows the [Conventional Commits specification](https://www.conventionalcommits.org/en/v1.0.0/)
 
 ### **Build and start:**
 
@@ -19,36 +25,20 @@ Keep track of income, expense and savings for a healthy budget
  ```
 
 ### **Access the API:**
-   - Health endpoint: `curl http://localhost:8000/api/v1/health`
-   - API docs: http://localhost:8000/docs
+- API docs: http://localhost:8000/docs (OpenAPI Specification)
+- Health endpoint: `curl http://localhost:8000/api/v1/health` (URL Path versioning)
 
 ## Available Commands
 
 ### Using Make (recommended):
 ```bash
 make help           # Show all available commands
-make build          # Build Docker containers
-make up             # Start the application
-make stop           # Stop the application
-make down           # Stop the application and delete all artifacts
-make logs           # Show application logs
-make shell          # Enter container shell
-
-# Development & Testing
-make lint           # Run ruff linter
-make lint-fix       # Fix linting issues automatically
-make test           # Run unit tests with coverage
-make coverage       # Generate detailed coverage report
-make behave         # Run BDD tests
-make test-all       # Run all tests and linting
-
-make clean          # Clean up containers and volumes
 ```
 
 ## Development Workflow && Testing Strategy
 
-This project adopt a Behavior-Driven Development methodology for it's development 
-and a Hexagonal Architecture as the software design pattern leveraging it's 
+This project adopts a Behavior-Driven Development methodology for its development 
+and a Hexagonal Architecture as the software design pattern leveraging its 
 testability, flexibility, maintainability and framework agnosticism 
 
 ### 1. Unit Tests (pytest)
@@ -94,7 +84,9 @@ testability, flexibility, maintainability and framework agnosticism
 
 1. **Domain First**: Define entities and ports in `app/application/domain/`
 2. **Application**: Implement services in `app/application/`
-3. **Infrastructure**: Create adapters and web routes
+3. **Infrastructure**: 
+   1. **Driving side**: Primary actors initiate the interaction. depends on the port, which is implemented by the Application
+   2. **Driven side**: Secondary actors are kicked into behavior by the Application, and this depends on the defined Ports, which this side implements
 4. **Tests**: Add unit tests and BDD scenarios
 5. **Documentation**: Update this README
 
@@ -107,29 +99,35 @@ testability, flexibility, maintainability and framework agnosticism
 - Configuration in `pyproject.toml`
 - Run with: `make lint` or `make lint-fix`
 
+**Code Style Rules**:
+- Line length: 88 characters
+- Import sorting and formatting
+- Python 3.11+ syntax enforcement
+- Comprehensive error checking
+
 ---
 
 ## Nice-to-have features
 
 - [ ] Add authentication and authorization
-- [ ] Implement proper error handling
-- [ ] Add API rate limiting
 
 ## Nice-to-have non-functional requirements
 
 - [ ] Generate CHANGELOG.md automatically
-- [ ] Define tree structured with a Hexagonal Architecture approach
-- [ ] Linting rules (that executes previous a commit)
-- [ ] Testing
-  - [ ] unit
+- [x] Define tree structured with a Hexagonal Architecture approach
+- [x] Linting rules (that executes previous a commit)
+- [ ] Testing setup
+  - [x] unit
   - [ ] integration
-  - [ ] e2e
+  - [x] e2e
   - [ ] performance
   - [ ] mutation
 - [ ] Coverage rules
-- [ ] Vulnerability checks for dependencies
-- [ ] Versioning (SemVer)
 - [ ] Environment configuration && deployment (Set up CI/CD pipeline)
+- [ ] Implement proper error handling [(RFC 9457: Problem Details for HTTP APIs)](https://www.rfc-editor.org/rfc/rfc9457.html#name-the-problem-details-json-ob)
+- [ ] Add API rate limiting
+- [ ] Versioning (SemVer)
+- [ ] Vulnerability checks for dependencies
 - [ ] Monitoring && observability
   - [ ] Structured logging 
   - [ ] Monitoring

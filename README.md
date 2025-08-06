@@ -1,5 +1,5 @@
 # Spendtrack
-git
+
 [![Coverage Status](https://coveralls.io/repos/github/eprediger/spendtrack/badge.svg?branch=main)](https://coveralls.io/github/eprediger/spendtrack?branch=main)
 
 Keep track of income, expense and savings for a healthy budget

@@ -1,0 +1,51 @@
+@expense-registration @s1 @todo
+Feature: Register a basic expense
+  As a Financial Manager
+  I want to register an expense as an economic event
+  So that I can track where my money is consumed
+
+  An expense represents economic consumption, not a payment.
+  This slice covers the economic fact alone: no payment mechanism,
+  no supporting document, no purchase detail, no installments.
+
+  Required information: occurrence date, amount, currency, description.
+
+  Scenario: Register an expense
+    Given a Financial Context
+    When the Financial Manager registers an expense on "2026-09-20" for 45.90 "USD" described as "Groceries"
+    Then the expense is recorded in the Financial Context
+    And the expense has occurrence date "2026-09-20", amount 45.90 "USD" and description "Groceries"
+
+  Scenario: Review a registered expense
+    Given an expense on "2026-09-20" for 45.90 "USD" described as "Groceries" was registered
+    When the Financial Manager reviews the expense
+    Then the expense shows occurrence date "2026-09-20", amount 45.90 "USD" and description "Groceries"
+
+  Scenario Outline: Missing required information
+    When the Financial Manager registers an expense without "<field>"
+    Then the registration is rejected
+    And the system indicates "<field>" is required
+
+    Examples:
+      | field       |
+      | date        |
+      | amount      |
+      | currency    |
+      | description |
+
+  Scenario Outline: Invalid information is rejected
+    When the Financial Manager registers an expense on "<date>" for <amount> "<currency>" described as "<description>"
+    Then the registration is rejected
+    And the system indicates the <field> is invalid
+
+    Examples:
+      | date       | amount | currency | description | field    |
+      | 2026-09-20 | -45.90 | USD      | Groceries   | amount   |
+      | 2026-09-20 | 0      | USD      | Groceries   | amount   |
+      | 2026-09-20 | 45.90  | XX1      | Groceries   | currency |
+      | 2026-09-20 | 45.90  | US       | Groceries   | currency |
+
+  Scenario: Occurrence date cannot be in the future
+    When the Financial Manager registers an expense dated tomorrow for 45.90 "USD" described as "Groceries"
+    Then the registration is rejected
+    And the system indicates the occurrence date cannot be in the future

@@ -62,7 +62,7 @@ The exact relationship between these artifacts remains subject to refinement.
 ## Repository Conventions
 
 * Executable requirements (`.feature`): `backend/features/<domain>/<story>.feature`. Unimplemented stories and scenarios are tagged `@todo`; slice traceability uses tags like `@s1`.
-* Specifications: `specs/<feature>/<slice>/` — `spec.md` (approved implementation behavior), `plan.md` (technical design), `tasks.md` (implementation checklist).
+* Specifications: `specs/<feature>/<slice>/` — `spec.md` holds implementation-contract detail not expressible in executable requirements (API shape, error semantics, data representations); behavior itself lives in `.feature` files. `plan.md` (technical design) and `tasks.md` (implementation checklist) are created only when a slice has real design decisions or multi-step work — artifacts are enablers, not mandatory gates.
 * Architectural decisions: `adr/` (created on the first recorded decision).
 * Domain model documentation: `domain/`.
 * Approval is a human decision, recorded in the relevant `decisions.md` or in the artifact's own status.
@@ -70,11 +70,11 @@ The exact relationship between these artifacts remains subject to refinement.
 
 ## Spec Kit
 
-Spec Kit is the proposed tooling for operationalizing SDD.
+Spec Kit was the proposed tooling for operationalizing SDD.
 
-Its formal adoption and integration are not yet final decisions.
+Spec Kit and OpenSpec were both evaluated and adoption is deferred (September 2026). Rationale: `.feature` files are executable requirements verified in CI; prose spec formats add a parallel non-executable layer whose cost is not justified until the S1 pilot demonstrates a gap the current conventions cannot cover. If a framework is adopted later, OpenSpec's change/delta model is the better fit for iteratively evolving the same capability; its useful ideas (deltas over living truth, optional artifacts) are already absorbed into the conventions above.
 
-Before adoption, the project must determine:
+The questions below remain open and become relevant only if adoption is revisited:
 
 * supported AI coding agents;
 * Spec Kit version;
@@ -113,6 +113,6 @@ Resolved: the SDD lifecycle and artifact locations are defined in this document;
 1. Draft the specification for the first slice of `Expense Registration` (S1).
 2. Run the pilot: specification → technical plan → tasks → implementation → validation.
 3. Evaluate the pilot against the criteria listed above.
-4. Evaluate Spec Kit against this lifecycle — adopt only if it adds value over the conventions already defined.
+4. Revisit spec tooling (Spec Kit, OpenSpec) with pilot evidence — adopt only if the pilot exposes a gap the conventions cannot cover.
 5. Adjust the workflow and adopt it for subsequent Features if approved.
 

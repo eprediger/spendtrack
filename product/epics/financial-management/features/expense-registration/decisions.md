@@ -48,6 +48,8 @@ S1 is the walking skeleton: an expense exists without payment or document, so th
 
 Each slice is specified by an executable `.feature` file — the single source for its User Story, Acceptance Criteria, and BDD scenarios — linked above once drafted.
 
+Stories S2–S7 are intentionally not drafted yet: each `.feature` is written when its slice is scheduled, applying the last responsible moment principle. Their absence is a deferral, not outstanding work.
+
 ---
 
 ## Open Decisions

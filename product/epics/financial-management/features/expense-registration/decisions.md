@@ -4,7 +4,7 @@
 
 ### Expense Is Economic Consumption
 
-An expense represents economic consumption and must not be conflated with payment or cash movement.
+An expense represents economic consumption. It is not the same thing as a payment or a cash movement.
 
 ### Purchase Is Part of the Expense Representation
 
@@ -24,7 +24,7 @@ Installments and other future settlements must remain distinguishable from the e
 
 ### S1 Required Attributes and Validation Rules
 
-For the first slice, an expense requires occurrence date, amount, currency, and description at registration. Registration is rejected when required information is missing or invalid: the amount must be positive, the currency must be a valid ISO 4217 code, and the occurrence date must not be in the future.
+For the first slice, an expense requires occurrence date and time, amount, currency, and description at registration. Registration is rejected when required information is missing or invalid: the amount must be positive, the currency must be a valid ISO 4217 code, and the occurrence must not be in the future. The occurrence preserves both the absolute instant and the local wall-clock time, so time-windowed promotions can be analyzed later.
 
 This agreement covers S1 only; later slices may introduce additional attributes and their own validation rules.
 
@@ -36,9 +36,9 @@ The following implementation slicing is agreed. Each slice activates the domain 
 
 | Slice | Story                                                                      | Concepts activated                                              |
 | ----- | -------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| S1    | [Register a basic expense (date, amount, currency, description) and review it](../../../../../backend/features/expenses/register_basic_expense.feature) | Expense, Financial Context |
+| S1    | [Register a basic expense (date and time, amount, currency, description) and review it](../../../../../backend/features/expenses/register_basic_expense.feature) | Expense, Financial Context |
 | S2    | Classify the expense                                                       | Classification                                                  |
-| S3    | Associate supporting documentation (optional)                              | Document                                                        |
+| S3    | Associate supporting documentation (expenses may have none)                | Document                                                        |
 | S4    | Detail the expense as a purchase (commerce, establishment, items)          | Purchase, Commerce, Establishment, Product                      |
 | S5    | Indicate people and economic allocation                                    | Person, Economic Ownership, Economic Allocation                 |
 | S6    | Represent payment mechanism / settlement                                   | Movement, Financial Account                                     |
@@ -71,6 +71,7 @@ The following decisions remain unresolved and must not be treated as requirement
 * Commerce and Establishment registration behavior.
 * Acceptance Criteria and BDD scenarios per story in the agreed Story Map (S1 approved, S2–S7 pending).
 * Location of BDD feature files if additional applications are added to the repository (currently `backend/features/`).
+* Whether enforcing per-currency decimal exponents (ISO 4217 minor units — e.g., JPY has 0 decimals, BHD has 3) is required or overkill. S1 validates the currency code but not exponent-consistent amounts; revisit when analyzing `Money` representation.
 
 Open decisions must be resolved through the relevant Product Discovery and Feature refinement process.
 

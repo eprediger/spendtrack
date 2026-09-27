@@ -133,6 +133,16 @@ src/
 
 `AGENTS.md` contains instructions for AI agents. It must not become a duplicate repository of all product knowledge.
 
+## Communication
+
+* Answer first, then only the context the answer needs. No preamble, no restating the question.
+* Keep responses short. Expand only when the user asks for depth or correctness requires it.
+
+## Documentation Conventions
+
+* Use plain register: short sentences, common words. Avoid rare or literary vocabulary (e.g., write "is not the same thing as", not "must not be conflated with"). The `ste100` skill (`.devin/skills/ste100/`) provides the rulebook; default to its **STE-flavored** mode for this repository's prose.
+* References to repository files inside Markdown documents must be clickable relative links — e.g., [`adr/0001-backend-language.md`](adr/0001-backend-language.md) — not plain code-formatted paths. This keeps documentation navigable in rendered UIs (GitHub, IDE previews).
+
 ## Quality
 
 AI-generated code is subject to the same engineering standards as human-written code.
@@ -149,6 +159,8 @@ Consider, according to feature risk and value:
 * maintainability.
 
 Implementation is not complete merely because the code compiles or tests pass. The approved behavior must also be validated.
+
+Error responses must never expose internal details — stack traces, SQL errors, constraint names, file paths, or serialized Go/runtime errors. Use fixed titles and controlled error codes in API responses; internal error text belongs in logs.
 
 ## Domain Integrity
 

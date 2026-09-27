@@ -8,18 +8,18 @@ Feature: Register a basic expense
   This slice covers the economic fact alone: no payment mechanism,
   no supporting document, no purchase detail, no installments.
 
-  Required information: occurrence date, amount, currency, description.
+  Required information: occurrence date and time, amount, currency, description.
 
   Scenario: Register an expense
     Given a Financial Context
-    When the Financial Manager registers an expense on "2026-09-20" for 45.90 "USD" described as "Groceries"
+    When the Financial Manager registers an expense at "2026-09-20T14:30:00-03:00" for 45.90 "USD" described as "Groceries"
     Then the expense is recorded in the Financial Context
-    And the expense has occurrence date "2026-09-20", amount 45.90 "USD" and description "Groceries"
+    And the expense occurred at "2026-09-20T14:30:00-03:00" with amount 45.90 "USD" and description "Groceries"
 
   Scenario: Review a registered expense
-    Given an expense on "2026-09-20" for 45.90 "USD" described as "Groceries" was registered
+    Given an expense at "2026-09-20T14:30:00-03:00" for 45.90 "USD" described as "Groceries" was registered
     When the Financial Manager reviews the expense
-    Then the expense shows occurrence date "2026-09-20", amount 45.90 "USD" and description "Groceries"
+    Then the expense shows occurred at "2026-09-20T14:30:00-03:00" with amount 45.90 "USD" and description "Groceries"
 
   Scenario Outline: Missing required information
     When the Financial Manager registers an expense without "<field>"
@@ -28,24 +28,24 @@ Feature: Register a basic expense
 
     Examples:
       | field       |
-      | date        |
+      | occurred at |
       | amount      |
       | currency    |
       | description |
 
   Scenario Outline: Invalid information is rejected
-    When the Financial Manager registers an expense on "<date>" for <amount> "<currency>" described as "<description>"
+    When the Financial Manager registers an expense at "<occurred at>" for <amount> "<currency>" described as "<description>"
     Then the registration is rejected
     And the system indicates the <field> is invalid
 
     Examples:
-      | date       | amount | currency | description | field    |
-      | 2026-09-20 | -45.90 | USD      | Groceries   | amount   |
-      | 2026-09-20 | 0      | USD      | Groceries   | amount   |
-      | 2026-09-20 | 45.90  | XX1      | Groceries   | currency |
-      | 2026-09-20 | 45.90  | US       | Groceries   | currency |
+      | occurred at              | amount | currency | description | field    |
+      | 2026-09-20T14:30:00-03:00| -45.90 | USD      | Groceries   | amount   |
+      | 2026-09-20T14:30:00-03:00| 0      | USD      | Groceries   | amount   |
+      | 2026-09-20T14:30:00-03:00| 45.90  | XX1      | Groceries   | currency |
+      | 2026-09-20T14:30:00-03:00| 45.90  | US       | Groceries   | currency |
 
-  Scenario: Occurrence date cannot be in the future
-    When the Financial Manager registers an expense dated tomorrow for 45.90 "USD" described as "Groceries"
+  Scenario: Occurrence cannot be in the future
+    When the Financial Manager registers an expense that occurs in the future for 45.90 "USD" described as "Groceries"
     Then the registration is rejected
-    And the system indicates the occurrence date cannot be in the future
+    And the system indicates the occurrence cannot be in the future

@@ -1,6 +1,3 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
-
 name: CI
 
 on:
@@ -14,43 +11,49 @@ permissions:
 
 jobs:
   ci:
-
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
-    env:
-      POETRY_VERSION: 2.1.3
-      POETRY_CACHE_DIR: /tmp/poetry_cache
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: spendtrack
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d spendtrack"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - name: Set up Go
+      uses: actions/setup-go@v5
       with:
-        python-version: "3.13"
+        go-version: "1.27"
 
-    - name: Install dependencies
-      run: |
-        pip install poetry==${POETRY_VERSION}
-        poetry config virtualenvs.create false && \
-        poetry install --no-root && \
-        rm -rf $POETRY_CACHE_DIR
+    - name: Install golangci-lint
+      run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v2.14.0
+
+    - name: Build
+      run: go build ./...
+
+    - name: Vet
+      run: go vet ./...
 
     - name: Lint
-      run: |
-        poetry run ruff check app/
+      run: golangci-lint run ./...
 
-    - name: Unit & e2e Test
-      run: |
-        poetry run coverage run -m pytest
-        poetry run coverage run -a -m behave
-        poetry run coverage xml
-        poetry run coverage report
+    - name: Unit tests
+      run: go test ./internal/... ./cmd/...
 
-    - name: Send report to Coveralls
-      uses: coverallsapp/github-action@v2
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        file: backend/coverage.xml
+    - name: BDD suite
+      env:
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/spendtrack?sslmode=disable
+      run: go test ./features/...

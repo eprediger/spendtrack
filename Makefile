@@ -1,8 +1,6 @@
-.PHONY: build up start stop down logs shell install lint lint-ci lint-fix \
-		test test-ci coverage behave behave-ci test-all ci clean
+.PHONY: build run up down logs db lint lint-fix test bdd coverage ci clean dev
 
-TARGETS := build up start stop down logs shell install lint lint-ci lint-fix \
-		test test-ci coverage behave behave-ci test-all ci clean
+TARGETS := build run up down logs db lint lint-fix test bdd coverage ci clean dev
 
 $(TARGETS):
 	$(MAKE) -C backend $@

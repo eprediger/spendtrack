@@ -1,5 +1,6 @@
-.PHONY: help build up start stop down logs shell install lint lint-ci lint-fix \
-		test test-ci coverage behave behave-ci test-all ci clean
+.PHONY: help build run up down logs db lint lint-fix test bdd coverage ci clean dev
+
+DATABASE_URL ?= postgres://postgres:postgres@localhost:5432/spendtrack?sslmode=disable
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -7,66 +8,46 @@ help: ## Show this help message
 	@echo 'Targets:'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-build: ## Build the Docker containers
-	docker-compose build
+build: ## Build the Go binary
+	go build ./...
 
-up: ## Run the application containers
-	docker-compose up -d
+run: ## Build and run the full stack (app + postgres)
+	docker compose up --build
 
-start: ## Start the application
-	docker-compose start
+up: ## Start the full stack in background
+	docker compose up -d --wait
 
-stop: ## Stop the application
-	docker-compose stop
+down: ## Stop the stack
+	docker compose down
 
-down: ## Stop the application and delete all artifacts
-	docker-compose down
+logs: ## Follow container logs
+	docker compose logs -f
 
-logs: ## Show application logs
-	docker-compose logs -f
+db: ## Start postgres only (for local tests)
+	docker compose up -d --wait postgres
 
-shell: ## Enter the application container
-	docker-compose exec app bash
+lint: ## Run golangci-lint
+	golangci-lint run ./...
 
-install: ## Install dependencies
-	docker-compose exec app poetry install
+lint-fix: ## Run golangci-lint with autofix
+	golangci-lint run --fix ./...
 
-lint: ## Run linter (interactive)
-	docker-compose exec app poetry run ruff check app/
-	docker-compose exec app poetry run ruff format --check app/
+test: ## Run unit tests (no database needed)
+	go test ./internal/... ./cmd/...
 
-lint-ci: ## Run linter (non-interactive, for CI/hooks)
-	docker-compose exec -T app poetry run ruff check app/
-	docker-compose exec -T app poetry run ruff format --check app/
+bdd: db ## Run BDD suite against real Postgres
+	DATABASE_URL="$(DATABASE_URL)" go test ./features/...
 
-lint-fix: ## Fix linting issues
-	docker-compose exec app poetry run ruff check --fix app/
-	docker-compose exec app poetry run ruff format app/
+coverage: db ## Run all tests with coverage report
+	DATABASE_URL="$(DATABASE_URL)" go test -coverprofile=coverage.out -coverpkg=./internal/...,./cmd/... ./...
+	go tool cover -func=coverage.out | tail -1
 
-test: ## Run unit tests with coverage (interactive)
-	docker-compose exec app poetry run -m pytest
-	docker-compose exec app poetry run coverage report
+ci: lint db ## Lint + full test suite (used by hooks/CI)
+	DATABASE_URL="$(DATABASE_URL)" go test -coverprofile=coverage.out -coverpkg=./internal/...,./cmd/... ./...
+	go tool cover -func=coverage.out | tail -1
 
-test-ci: ## Run unit tests with coverage (non-interactive, for CI/hooks)
-	docker-compose exec -T app poetry run coverage run -m pytest
-	docker-compose exec -T app poetry run coverage report
+dev: db ## Rebuild + restart the API on save (host only, requires `air`; not used for deploys)
+	DATABASE_URL="$(DATABASE_URL)" air
 
-coverage: ## Generate coverage report
-	docker-compose exec app poetry run coverage run -m pytest
-	docker-compose exec app poetry run coverage run -a -m behave
-	docker-compose exec app poetry run coverage report --show-missing
-	docker-compose exec app poetry run coverage html
-
-behave: ## Run BDD tests
-	docker-compose exec app poetry run behave --tags=~@todo
-
-behave-ci: ## Run BDD tests (non-interactive, for CI/hooks)
-	docker-compose exec -T app poetry run behave --tags=~@todo
-
-test-all: lint test behave ## Run all tests and linting (interactive)
-
-ci: lint-ci test-ci behave-ci ## Run all tests and linting (non-interactive, for CI/hooks)
-
-clean: ## Clean up containers and volumes
-	docker-compose down -v
-	docker system prune -f
+clean: ## Stop the stack and delete volumes
+	docker compose down -v

@@ -1,46 +1,13 @@
-# Use Python image
-FROM python:3.13-slim
-
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
-
-# Install system dependencies
-RUN apt update && \
-    apt install -y \
-    build-essential \
-    curl && \
-    apt clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# Configure Poetry
-ENV POETRY_NO_INTERACTION=1 \
-    POETRY_VENV_IN_PROJECT=1 \
-    POETRY_CACHE_DIR=/tmp/poetry_cache \
-    POETRY_VERSION=2.1.3
-
-# Install Poetry
-RUN curl -sSL https://install.python-poetry.org | python3 -
-ENV PATH="/root/.local/bin:$PATH"
-
-# Set work directory
+# Build stage
+FROM golang:1.27-alpine AS build
 WORKDIR /app
-
-# Copy Poetry files
-COPY pyproject.toml poetry.lock* ./
-
-# Install dependencies
-RUN poetry config virtualenvs.create false && \
-    poetry install --no-root && \
-    rm -rf $POETRY_CACHE_DIR
-
-# Copy application code
+COPY go.mod go.sum* ./
+RUN go mod download
 COPY . .
+RUN CGO_ENABLED=0 go build -o /bin/api ./cmd/api
 
-# Expose port
+# Runtime stage
+FROM alpine:3.21
+COPY --from=build /bin/api /api
 EXPOSE 8000
-
-# Run the application
-CMD ["poetry", "run", "uvicorn", "app.infrastructure.http.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+ENTRYPOINT ["/api"]

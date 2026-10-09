@@ -1,4 +1,4 @@
-@expense-registration @s1 @todo
+@expense-registration @s1
 Feature: Register a basic expense
   As a Financial Manager
   I want to register an expense as an economic event

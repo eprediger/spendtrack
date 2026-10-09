@@ -6,7 +6,11 @@ services:
     ports:
       - "8000:8000"
     environment:
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/spendtrack?sslmode=disable
       - PORT=8000
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
   postgres:

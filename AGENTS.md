@@ -52,6 +52,8 @@ Executable `.feature` files are the source of truth for User Stories, Acceptance
 
 `.feature` files currently live in `backend/features/`. Their placement relative to future applications is deferred until a second application needs to bind the same scenarios (last responsible moment).
 
+Implementation proceeds incrementally, one acceptance scenario at a time: write the scenario (or remove its `@todo` tag), watch it fail, implement the minimum that makes it pass, commit, then move to the next. Implementing an entire feature in one pass produces diffs that are hard to review.
+
 GitHub Issues and Projects are an optional workflow layer for status, prioritization, and discussion. They hold no requirement content and link to the corresponding `.feature` file.
 
 The repository stores durable product, domain, architecture, and engineering knowledge.

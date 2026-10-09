@@ -1,4 +1,4 @@
-.PHONY: help build run up down logs db lint lint-fix test bdd coverage ci clean dev
+.PHONY: help build run up down logs db lint lint-fix test bdd coverage ci clean
 
 DATABASE_URL ?= postgres://postgres:postgres@localhost:5432/spendtrack?sslmode=disable
 
@@ -10,6 +10,9 @@ help: ## Show this help message
 
 build: ## Build the Go binary
 	go build ./...
+
+dev: db ## Rebuild + restart the API on save (host only, requires `air`; not used for deploys)
+	DATABASE_URL="$(DATABASE_URL)" air
 
 run: ## Build and run the full stack (app + postgres)
 	docker compose up --build
@@ -45,9 +48,6 @@ coverage: db ## Run all tests with coverage report
 ci: lint db ## Lint + full test suite (used by hooks/CI)
 	DATABASE_URL="$(DATABASE_URL)" go test -coverprofile=coverage.out -coverpkg=./internal/...,./cmd/... ./...
 	go tool cover -func=coverage.out | tail -1
-
-dev: db ## Rebuild + restart the API on save (host only, requires `air`; not used for deploys)
-	DATABASE_URL="$(DATABASE_URL)" air
 
 clean: ## Stop the stack and delete volumes
 	docker compose down -v

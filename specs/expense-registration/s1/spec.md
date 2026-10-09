@@ -50,7 +50,7 @@ Request body:
   "status": 422,
   "errors": [
     { "field": "amount", "code": "not_positive", "detail": "must be greater than 0" },
-    { "field": "currency", "code": "invalid_iso4217", "detail": "unknown currency code" }
+    { "field": "currency", "code": "unsupported_currency", "detail": "currency is not supported" }
   ]
 }
 ```
@@ -58,7 +58,17 @@ Request body:
 ### `GET /api/v1/expenses/{id}`
 
 * `200 OK` — returns the expense resource (same shape as POST response).
-* `404 Not Found` — `application/problem+json` when the id does not exist:
+* `400 Bad Request` — `application/problem+json` when `{id}` is not a syntactically valid UUID:
+
+```json
+{
+  "type": "https://spendtrack.dev/problems/invalid-id",
+  "title": "Invalid expense id",
+  "status": 400
+}
+```
+
+* `404 Not Found` — `application/problem+json` when `{id}` is a valid UUID but no expense has it:
 
 ```json
 {
@@ -68,20 +78,22 @@ Request body:
 }
 ```
 
+Malformed and absent ids are distinguished on purpose: the UUID shape is already public (every `201` response echoes one), so there is nothing to protect by hiding it, and conflating the two would make a client's own bugs indistinguishable from normal "not found" responses.
+
 ## Validation Rules (contract level)
 
 | Field            | Rule                                                        |
 | ---------------- | ----------------------------------------------------------- |
 | `occurred_at`    | required; RFC 3339 datetime with explicit offset; instant must not be in the future |
 | `amount`         | required; decimal; must be > 0                              |
-| `currency`       | required; valid ISO 4217 alphabetic code                    |
+| `currency`       | required; code in the supported currency set (curated ISO 4217 codes) |
 | `description`    | required; non-empty after trimming whitespace               |
 
 Notes:
 
 * "Not in the future" compares instants (the offset makes it exact — no date-boundary ambiguity).
 * The original UTC offset is persisted alongside the instant so the local wall-clock time remains recoverable. The IANA zone name (`America/Argentina/Buenos_Aires`) is not stored — only needed for future recurring rules, revisit then.
-* ISO 4217 validation: the code must be a known currency code (validated against the ISO 4217 list, not merely format).
+* ISO 4217 validation: the code must be in the curated supported set (currently `ARS`, `USD`), grown deliberately as the product needs more currencies. Every code in the set is a valid ISO 4217 alphabetic code; codes outside the set are rejected as `unsupported_currency`, not as malformed.
 
 ## Domain Model (minimal, for this slice)
 

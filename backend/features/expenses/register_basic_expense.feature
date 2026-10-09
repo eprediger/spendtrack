@@ -49,3 +49,20 @@ Feature: Register a basic expense
     When the Financial Manager registers an expense that occurs in the future for 45.90 "USD" described as "Groceries"
     Then the registration is rejected
     And the system indicates the occurrence cannot be in the future
+
+  Scenario: A missing field and an invalid field are reported together
+    When the Financial Manager registers an expense with:
+      | occurred at | 2026-09-20T14:30:00-03:00 |
+      | currency    | XX1                       |
+      | description | Groceries                 |
+    Then the registration is rejected
+    And the system indicates "amount" is required
+    And the system indicates the currency is invalid
+
+  Scenario: Reviewing an expense that does not exist
+    When the Financial Manager reviews an expense with an unknown id
+    Then the system indicates the expense was not found
+
+  Scenario: Reviewing an expense with a malformed id
+    When the Financial Manager reviews an expense with a malformed id
+    Then the system indicates the id is invalid

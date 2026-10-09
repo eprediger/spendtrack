@@ -24,7 +24,11 @@ Installments and other future settlements must remain distinguishable from the e
 
 ### S1 Required Attributes and Validation Rules
 
-For the first slice, an expense requires occurrence date and time, amount, currency, and description at registration. Registration is rejected when required information is missing or invalid: the amount must be positive, the currency must be a valid ISO 4217 code, and the occurrence must not be in the future. The occurrence preserves both the absolute instant and the local wall-clock time, so time-windowed promotions can be analyzed later.
+For the first slice, an expense requires occurrence date and time, amount, currency, and description at registration. Registration is rejected when required information is missing or invalid: the amount must be positive, the currency must be in the supported currency set, and the occurrence must not be in the future. The occurrence preserves both the absolute instant and the local wall-clock time, so time-windowed promotions can be analyzed later.
+
+### Supported Currencies Are a Curated Set
+
+S1 accepts a deliberately small set of currency codes (`ARS`, `USD`), not the full ISO 4217 list. The set grows as the product needs more currencies. Every accepted code is a valid ISO 4217 alphabetic code; codes outside the set are rejected as `unsupported_currency`. Maintaining (or depending on) the full ISO list is avoided: such lists drift and add maintenance with no current product need.
 
 This agreement covers S1 only; later slices may introduce additional attributes and their own validation rules.
 

@@ -13,7 +13,7 @@ Approval status (firm agreement vs. open decision) is a separate axis, tracked i
 
 ## Expense
 
-**Status:** provisional (firm agreement — see expense-registration [decisions.md](epics/financial-management/features/expense-registration/decisions.md))
+**Status:** validated by S1 (firm agreement — see expense-registration [decisions.md](epics/financial-management/features/expense-registration/decisions.md))
 
 Economic consumption recognized as a financial fact.
 
@@ -53,7 +53,7 @@ An obligation is distinct from the expense that may have originated it.
 
 ## Financial Context
 
-**Status:** provisional (firm agreement — see expense-registration [decisions.md](epics/financial-management/features/expense-registration/decisions.md))
+**Status:** provisional — activated implicitly by S1 (single context, not yet persisted); firm agreement — see expense-registration [decisions.md](epics/financial-management/features/expense-registration/decisions.md)
 
 An environment in which financial information is managed and shared among one or more people.
 

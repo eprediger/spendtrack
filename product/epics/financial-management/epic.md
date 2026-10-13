@@ -10,7 +10,9 @@ The Epic groups the capabilities required to maintain a reliable history of fina
 
 | Feature                                                             | Status                                            |
 | ------------------------------------------------------------------- | ------------------------------------------------- |
-| [Expense Registration](features/expense-registration/feature.md)    | In progress — first slice (S1) approved           |
+| [Expense Registration](features/expense-registration/feature.md)    | In progress — S1 approved; S4a–S4f drafted (`@todo`) |
+
+Related epics: [Promotion Management](../promotion-management/epic.md) and [Price Analysis](../price-analysis/epic.md) (both draft outlines).
 
 ## Principles
 

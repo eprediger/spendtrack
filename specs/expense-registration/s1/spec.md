@@ -93,6 +93,7 @@ Notes:
 
 * "Not in the future" compares instants (the offset makes it exact — no date-boundary ambiguity).
 * The original UTC offset is persisted alongside the instant so the local wall-clock time remains recoverable. The IANA zone name (`America/Argentina/Buenos_Aires`) is not stored — only needed for future recurring rules, revisit then.
+* Decimal exponent: the number of decimals in `amount` is not checked against the currency (agreed, see [`decisions.md`](../../../product/epics/financial-management/features/expense-registration/decisions.md), S1 — "Amounts Are Not Checked Against the Currency Decimal Exponent"). `10.123` is accepted for `ARS` and stored as given.
 * ISO 4217 validation: the code must be in the curated supported set (currently `ARS`, `USD`), grown deliberately as the product needs more currencies. Every code in the set is a valid ISO 4217 alphabetic code; codes outside the set are rejected as `unsupported_currency`, not as malformed.
 
 ## Domain Model (minimal, for this slice)

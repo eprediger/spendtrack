@@ -48,6 +48,11 @@ The Feature should allow the user to:
 11. Represent different payment mechanisms without treating settlement as a second expense.
 12. Support expenses that generate future payment commitments, such as installment purchases.
 13. Review the resulting expense record.
+14. Break an expense down into items (description, quantity, unit price, line total).
+15. Record reductions applied by the store, on the whole expense or on one item.
+16. Record reductions applied by another actor, such as a bank, first as expected and later as received.
+17. Correct a reduction that was applied wrongly.
+18. See the effective cost: the money that really left the pocket.
 
 ## Key Business Rules
 
@@ -62,6 +67,9 @@ The Feature should allow the user to:
 9. Shared financial context does not automatically determine economic ownership or responsibility.
 10. Supporting documents provide evidence but do not define whether an expense exists.
 11. Historical expense information must represent what actually occurred and must not be altered merely to accommodate forecasts.
+12. The effective cost is the charged total minus the reductions from other actors.
+13. A reduction that is only expected is a forecast. It makes the effective cost an estimate until it is received.
+14. The expense keeps the expected amount of a reduction next to the actual outcome.
 
 ## Dependencies
 

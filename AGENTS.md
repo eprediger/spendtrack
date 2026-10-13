@@ -96,6 +96,15 @@ Its adoption and exact integration into this repository are still open decisions
 
 Do not assume specific Spec Kit commands, workflows, artifact locations, or GitHub integrations until those decisions are explicitly approved.
 
+## Superpowers Plugin
+
+The superpowers skills are used for process: brainstorming, planning, test-driven development, verification, and review. The conventions of this repository come before the default locations and workflows of the skills.
+
+* Product-level brainstorming ends in `.feature` files and updates to `decisions.md`. It does not produce a separate design document.
+* A design for an implementation slice goes in `specs/<feature>/<slice>/spec.md`, not in `docs/superpowers/specs/`.
+* The technical design stays in `plan.md`. The task plan from `writing-plans` goes in `specs/<feature>/<slice>/tasks.md`, not in `docs/superpowers/plans/`.
+* Do not create a `docs/superpowers/` folder.
+
 ## Decision Handling
 
 Distinguish clearly between:
@@ -143,7 +152,18 @@ src/
 ## Documentation Conventions
 
 * Use plain register: short sentences, common words. Avoid rare or literary vocabulary (e.g., write "is not the same thing as", not "must not be conflated with"). The `ste100` skill (`.devin/skills/ste100/`) provides the rulebook; default to its **STE-flavored** mode for this repository's prose.
+* Documents, code, and `.feature` files use English ([`adr/0003-domain-language.md`](adr/0003-domain-language.md)). Every new core term in `product/glossary.md` gets an **En español** line, with a note when the English term does not map one to one. Do not invent the Spanish wording of new terms as final: mark it as provisional.
 * References to repository files inside Markdown documents must be clickable relative links — e.g., [`adr/0001-backend-language.md`](adr/0001-backend-language.md) — not plain code-formatted paths. This keeps documentation navigable in rendered UIs (GitHub, IDE previews).
+
+## Verification
+
+Run these commands from the repository root:
+
+* `make -C backend test`: unit tests. No database needed.
+* `make -C backend bdd`: BDD scenarios against Postgres. Docker must run.
+* `make -C backend ci`: lint plus the full test suite. The pre-commit hook runs it. Run it before you say that work is done.
+
+The BDD scenarios share one Postgres database and truncate the `expenses` table before each scenario. Run only one test suite at a time. Do not run parallel agents or two worktrees against the same database. To run in parallel, give each worktree its own database through `DATABASE_URL`.
 
 ## Quality
 

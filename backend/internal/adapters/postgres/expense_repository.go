@@ -23,10 +23,12 @@ func NewExpenseRepository(pool *pgxpool.Pool) *ExpenseRepository {
 }
 
 func (r *ExpenseRepository) Save(ctx context.Context, e *domain.Expense) error {
+	// Send text, not the Decimal: its driver Value() trims trailing zeros ("45.90" would be stored as "45.9").
+	amount := e.Money.Amount.StringFixed(-e.Money.Amount.Exponent())
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO expenses (id, occurred_at, occurred_offset_minutes, amount, currency, description)
 		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		e.ID, e.OccurredAt, e.OccurredOffsetMinutes, e.Money.Amount, string(e.Money.Currency), e.Description)
+		e.ID, e.OccurredAt, e.OccurredOffsetMinutes, amount, string(e.Money.Currency), e.Description)
 	return err
 }
 

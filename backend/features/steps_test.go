@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/cucumber/godog"
-	"github.com/shopspring/decimal"
 )
 
 type state struct {
@@ -176,14 +175,8 @@ func expenseMatches(occurredAt, amount, currency, description string) error {
 	if got := st.body["occurred_at"]; got != occurredAt {
 		return fmt.Errorf("occurred_at: want %q got %v", occurredAt, got)
 	}
-	want, err := decimal.NewFromString(amount)
-	if err != nil {
-		return err
-	}
-	gotStr, _ := st.body["amount"].(string)
-	got, err := decimal.NewFromString(gotStr)
-	if err != nil || !got.Equal(want) {
-		return fmt.Errorf("amount: want %s got %v", amount, st.body["amount"])
+	if got := st.body["amount"]; got != amount {
+		return fmt.Errorf("amount: want %q got %v", amount, got)
 	}
 	if got := st.body["currency"]; got != currency {
 		return fmt.Errorf("currency: want %q got %v", currency, got)

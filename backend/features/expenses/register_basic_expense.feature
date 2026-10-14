@@ -42,6 +42,7 @@ Feature: Register a basic expense
       | occurred at              | amount | currency | description | field    |
       | 2026-09-20T14:30:00-03:00| -45.90 | USD      | Groceries   | amount   |
       | 2026-09-20T14:30:00-03:00| 0      | USD      | Groceries   | amount   |
+      | 2026-09-20T14:30:00-03:00| abc    | USD      | Groceries   | amount   |
       | 2026-09-20T14:30:00-03:00| 45.90  | XX1      | Groceries   | currency |
       | 2026-09-20T14:30:00-03:00| 45.90  | US       | Groceries   | currency |
 

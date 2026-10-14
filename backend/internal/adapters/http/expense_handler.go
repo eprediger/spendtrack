@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 
 	"spendtrack/internal/application"
 	"spendtrack/internal/domain"
@@ -36,11 +37,43 @@ type expenseResponse struct {
 	Description string `json:"description"`
 }
 
+// formatAmount keeps the scale: "45.90" must not become "45.9".
+func formatAmount(d decimal.Decimal) string { return d.StringFixed(-d.Exponent()) }
+
+// parseAmount turns the request text into a decimal. A missing amount stays nil
+// for the domain to report; text that is not a number is reported here.
+func parseAmount(s *string) (*decimal.Decimal, *domain.FieldError) {
+	if s == nil {
+		return nil, nil
+	}
+	d, err := decimal.NewFromString(*s)
+	if err != nil {
+		return nil, &domain.FieldError{Field: "amount", Code: "invalid", Detail: "must be a decimal number"}
+	}
+	return &d, nil
+}
+
+// withAmountError swaps the domain's amount error, which only sees a missing
+// amount, for the parse error, so every field error is still reported together.
+func withAmountError(fields []domain.FieldError, amountErr *domain.FieldError) []domain.FieldError {
+	if amountErr == nil {
+		return fields
+	}
+	out := make([]domain.FieldError, len(fields))
+	for i, f := range fields {
+		if f.Field == "amount" {
+			f = *amountErr
+		}
+		out[i] = f
+	}
+	return out
+}
+
 func toResponse(e *domain.Expense) expenseResponse {
 	return expenseResponse{
 		ID:          e.ID.String(),
 		OccurredAt:  e.LocalTime().Format(time.RFC3339),
-		Amount:      e.Money.String(),
+		Amount:      formatAmount(e.Money.Amount),
 		Currency:    string(e.Money.Currency),
 		Description: e.Description,
 	}
@@ -57,8 +90,9 @@ func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// and format are checked here: a missing key or malformed text is reported
 	// immediately (there is no placeholder that could flow through without
 	// risking a false-positive validation pass, and Register persists on
-	// success). amount/currency/description pass through as-is — Money owns
-	// its pair's presence and content checks.
+	// success). amount is parsed here too, but its parse error is merged with
+	// the domain's. currency/description pass through as-is — Money owns the
+	// pair's presence and content checks.
 	if req.OccurredAt == nil {
 		writeProblem(w, http.StatusUnprocessableEntity, "validation-failed", "Validation failed",
 			[]domain.FieldError{{Field: "occurred_at", Code: "required", Detail: "occurred_at is required"}})
@@ -71,15 +105,16 @@ func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	amount, amountErr := parseAmount(req.Amount)
 	e, err := h.svc.Register(r.Context(), application.RegisterInput{
 		OccurredAt:  &occurredAt,
-		Amount:      req.Amount,
+		Amount:      amount,
 		Currency:    req.Currency,
 		Description: req.Description,
 	})
 	var verr *domain.ValidationError
 	if errors.As(err, &verr) {
-		writeProblem(w, http.StatusUnprocessableEntity, "validation-failed", "Validation failed", verr.Fields)
+		writeProblem(w, http.StatusUnprocessableEntity, "validation-failed", "Validation failed", withAmountError(verr.Fields, amountErr))
 		return
 	}
 	if err != nil {

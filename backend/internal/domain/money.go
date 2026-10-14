@@ -10,19 +10,18 @@ type Money struct {
 
 // NewMoney validates an amount/currency pair, keeping both required and
 // content checks together since a Money is never valid with only one side
-// present. amount and currency are nil when the caller's input omitted them.
-func NewMoney(amount, currency *string) (Money, []FieldError) {
+// present. amount and currency are nil when the caller's input omitted them
+// (or, for amount, could not be parsed: the adapter reports that case).
+func NewMoney(amount *decimal.Decimal, currency *string) (Money, []FieldError) {
 	var errs []FieldError
 
 	var d decimal.Decimal
 	if amount == nil {
 		errs = append(errs, FieldError{Field: "amount", Code: "required", Detail: "amount is required"})
-	} else if v, err := decimal.NewFromString(*amount); err != nil {
-		errs = append(errs, FieldError{Field: "amount", Code: "invalid", Detail: "must be a decimal number"})
-	} else if !v.IsPositive() {
+	} else if !amount.IsPositive() {
 		errs = append(errs, FieldError{Field: "amount", Code: "not_positive", Detail: "must be greater than 0"})
 	} else {
-		d = v
+		d = *amount
 	}
 
 	var c Currency
@@ -38,10 +37,4 @@ func NewMoney(amount, currency *string) (Money, []FieldError) {
 		return Money{}, errs
 	}
 	return Money{Amount: d, Currency: c}, nil
-}
-
-// String renders the amount preserving the scale it was given
-// ("45.90" stays "45.90", not "45.9").
-func (m Money) String() string {
-	return m.Amount.StringFixed(-m.Amount.Exponent())
 }

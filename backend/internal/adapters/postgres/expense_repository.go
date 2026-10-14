@@ -49,8 +49,7 @@ func (r *ExpenseRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain
 		return nil, err
 	}
 	// Same check as new input: a row written outside the API (a seed, a script) must not be served.
-	amountText := amount.StringFixed(-amount.Exponent())
-	money, errs := domain.NewMoney(&amountText, &currency)
+	money, errs := domain.NewMoney(&amount, &currency)
 	if len(errs) > 0 {
 		return nil, fmt.Errorf("stored expense %s has invalid money: %v", id, errs)
 	}

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 
 	"spendtrack/internal/domain"
 )
@@ -15,7 +16,7 @@ import (
 // violation in the same request.
 type RegisterInput struct {
 	OccurredAt  *time.Time
-	Amount      *string
+	Amount      *decimal.Decimal
 	Currency    *string
 	Description *string
 }

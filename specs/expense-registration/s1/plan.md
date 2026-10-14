@@ -58,6 +58,7 @@ Python scaffold (`app/`, `tests/`, `features/environment.py`, `features/steps/*.
 * `application/` — use cases + port interfaces. Depends only on domain.
 * `adapters/http`, `adapters/postgres` — driving/driven adapters; depend on ports.
 * `cmd/api` — wires adapters to ports.
+* Transport formats are parsed and formatted in the adapters, not in `domain/` or `application/`. The HTTP adapter turns the amount text into a `decimal.Decimal` and back (keeping its scale); the domain only sees decimals. The repository passes the amount to Postgres as text with its scale, because `Decimal`'s driver value trims trailing zeros.
 
 ## Validation Mapping
 

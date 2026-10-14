@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 // Expense is an economic consumption recognized as a financial fact.
@@ -23,7 +24,7 @@ type Expense struct {
 // their presence; amount and currency are pointers because Money owns the
 // presence and content checks of its pair (a Money is never valid with only
 // one side present).
-func NewExpense(occurredAt time.Time, amount, currency *string, description string, now time.Time) (*Expense, *ValidationError) {
+func NewExpense(occurredAt time.Time, amount *decimal.Decimal, currency *string, description string, now time.Time) (*Expense, *ValidationError) {
 	var fe []FieldError
 
 	if occurredAt.After(now) {

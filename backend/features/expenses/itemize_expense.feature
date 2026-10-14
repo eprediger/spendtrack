@@ -6,8 +6,10 @@ Feature: Itemize an expense
 
   An item has a description, a quantity, a unit price and a line total.
   Items are optional: an expense without items stays valid.
+  The quantity is a positive decimal number: a weight is a fraction.
+  The unit price and the line total keep the sign the receipt prints.
   The line total is the amount the receipt prints. It can differ from
-  quantity times unit price.
+  quantity times unit price. Items are in the currency of the expense.
 
   Scenario: Register an expense with items
     Given a Financial Context
@@ -31,9 +33,24 @@ Feature: Itemize an expense
     And the item keeps the line total 100.00 as printed
 
   Scenario: A returned deposit is a negative item
-    When the Financial Manager registers an expense with an item "RETURNABLE BOTTLE" of quantity -3, unit price 3001.00 and line total -9003.00
+    When the Financial Manager registers an expense with an item "RETURNABLE BOTTLE" of quantity 3, unit price -3001.00 and line total -9003.00
     Then the expense is recorded
-    And the item shows quantity -3 and line total -9003.00
+    And the item shows quantity 3 and line total -9003.00
+
+  Scenario: A quantity can be a fraction
+    When the Financial Manager registers an expense with an item of quantity 0.750, unit price 3200.00 and line total 2400.00
+    Then the expense is recorded
+    And the item shows quantity 0.750 and line total 2400.00
+
+  Scenario Outline: A quantity that is not positive is rejected
+    When the Financial Manager registers an expense with an item of quantity <quantity>, unit price 150.00 and line total 150.00
+    Then the registration is rejected
+    And the system indicates the item "quantity" is invalid
+
+    Examples:
+      | quantity |
+      | 0        |
+      | -1       |
 
   Scenario Outline: Incomplete item information is rejected
     When the Financial Manager registers an expense with an item without "<field>"

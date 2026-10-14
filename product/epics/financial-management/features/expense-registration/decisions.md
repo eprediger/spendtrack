@@ -92,7 +92,7 @@ If the check is added, apply it to amounts and line totals only. Unit prices and
 
 #### Stored Expenses Are Validated When They Are Loaded
 
-When an expense is loaded from the database, its money goes through the same `NewMoney` check as new input. A row that fails (for example a currency outside the supported set, written by a seed or script) is not served: the API answers with the generic internal error, and the details go to the log. No second constructor for loading is added.
+When an expense is loaded from the database, its money goes through the same `NewMoney` check as new input, and, from S4a on, each item goes through the same `NewItem` check. An object is built in one way only, so the model never holds invalid data. A row that fails (for example a currency outside the supported set, written by a seed or script) is not served: the API answers with the generic internal error, and the details go to the log. No second constructor for loading is added.
 
 Consequence: rules for new input also apply to old data. If a row holds a currency that this version does not support (for example after rolling back a deploy that added one), it cannot be read.
 
@@ -143,12 +143,29 @@ None yet. The feature-wide agreement "Supporting Documents Are Evidence" applies
 
 #### Items Carry Description, Quantity, Unit Price and Line Total
 
-An expense can be broken down into items. Each item has a description, a quantity, a unit price and a line total. The line total is the amount the receipt prints. It can differ from quantity times unit price. Items are optional. A line can be negative (for example a returned deposit).
+An expense can be broken down into items. Each item has a description, a quantity, a unit price and a line total. The line total is the amount the receipt prints. It can differ from quantity times unit price. Items are optional.
+
+#### Quantity Is a Positive Decimal Number
+
+The quantity is greater than zero. It is a decimal number, because an item sold by weight has a fractional quantity (for example 0.750 kg at a price per kg). Most items are counted in whole units.
+
+#### Unit Price and Line Total Can Be Negative
+
+The unit price and the line total keep the sign the receipt prints. A returned deposit is printed as a positive quantity with a negative unit price (for example 3 units at -3,001.00, a line total of -9,003.00). S4a has no other rule about the sign of these two amounts.
+
+#### Items Share the Currency of the Expense
+
+All items of an expense are in the currency of the expense. A receipt with items in different currencies is not supported.
+
+#### Items Are Not Checked Against the Amount in S4a
+
+S4a does not check that the items add up to the amount of the expense. The product owner prefers that they add up exactly. That check needs the store discounts of S4b, so it is an open decision there.
 
 ### Open Decisions
 
 * Any other item information required beyond description, quantity, unit price and line total (for example tax rate).
 * Product identification behavior, including when the receipt prints a barcode.
+* Whether an item records its unit of measure (units, kg), so that a unit price per kg can be told apart from a price per unit.
 
 ---
 
@@ -164,7 +181,7 @@ This agreement also applies to S4d and S4f.
 
 ### Open Decisions
 
-* Whether items and store discounts must add up to the charged total, and what happens when they do not.
+* Whether items and store discounts must add up to the charged total, and what happens when they do not. The product owner prefers that they add up exactly. The receipt in the [supermarket example](../../../../examples/supermarket-receipt.md) does: 61,390.00 of items minus 1,700.00 of discounts is 59,690.00.
 * Whether informational savings printed on a receipt (for example the loyalty club savings line of the [supermarket receipt](../../../../examples/supermarket-receipt.md), already inside prices) are recorded or ignored.
 * Whether a store sale price cut is the same concept as a program promotion.
 * Whether "Reduction" stays one concept or splits into the store's discount (*descuento*) and the bank's refund (*reintegro*). In Spanish, users keep them apart. See the **En español** line of Reduction in the glossary. Deferred: a concrete example is needed before deciding. Revisit when S4b and S4d are refined. "Reduction" is also not a common English term for this (English uses discount, rebate, cashback), so the English name may change too.
@@ -297,3 +314,4 @@ Real receipts and promotions that give context to the definitions are transcribe
 
 * Location of the feature files for Promotion Management and Price Analysis (a technical decision, deferred).
 * Location of BDD feature files if additional applications are added to the repository (currently `backend/features/`).
+* How a photo of a receipt becomes an expense: the expense is created from the photo and the user edits it afterwards, or the extracted data fills a form that the user checks and submits. Deferred to the photo feature. S4a does not depend on it.

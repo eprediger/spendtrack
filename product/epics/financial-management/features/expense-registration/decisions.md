@@ -90,6 +90,18 @@ Revisit when any of these happens:
 
 If the check is added, apply it to amounts and line totals only. Unit prices and quantities on receipts can have more decimals than the currency exponent.
 
+#### Stored Expenses Are Validated When They Are Loaded
+
+When an expense is loaded from the database, its money goes through the same `NewMoney` check as new input. A row that fails (for example a currency outside the supported set, written by a seed or script) is not served: the API answers with the generic internal error, and the details go to the log. No second constructor for loading is added.
+
+Consequence: rules for new input also apply to old data. If a row holds a currency that this version does not support (for example after rolling back a deploy that added one), it cannot be read.
+
+Revisit, and add a separate constructor for loading, when any of these happens:
+
+* a rule for new input tightens and old data must still load (for example the decimal exponent check);
+* a rollback after adding a currency becomes a real concern;
+* other code needs to build an already validated `Money` without going through input strings.
+
 These agreements cover S1 only; later slices may introduce additional attributes and their own validation rules.
 
 ### Open Decisions

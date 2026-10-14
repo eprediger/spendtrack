@@ -112,6 +112,8 @@ Notes:
 
 Validation failures return RFC 9457 problem details (`application/problem+json`) with `type`, `title`, `status`, and an `errors` array of `{field, code, detail}` entries — covering both missing and invalid fields, per the story's scenarios.
 
+A stored expense that breaks the domain rules when it is loaded (for example an unsupported currency, written by a seed or script instead of the API) is not served. `GET /api/v1/expenses/{id}` returns `500` with the generic `Internal error` problem body. The details go to the log only.
+
 ## Explicitly Out of This Slice
 
 Payment mechanisms and settlements, supporting documents, purchase detail, classification structure, people and economic allocation, installments/payment commitments, multiple financial contexts, authentication/authorization.

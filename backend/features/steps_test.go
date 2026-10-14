@@ -49,6 +49,8 @@ func initializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the Financial Manager reviews an expense with a malformed id$`, reviewMalformedExpense)
 	sc.Step(`^the system indicates the expense was not found$`, notFound)
 	sc.Step(`^the system indicates the id is invalid$`, invalidID)
+	sc.Step(`^an expense with the unsupported currency "([^"]*)" is stored in the database$`, storedWithCurrency)
+	sc.Step(`^the system indicates an internal error$`, internalError)
 	sc.Step(`^the expense occurred at "([^"]*)" with amount (\S+) "([^"]*)" and description "([^"]*)"$`, expenseMatches)
 	sc.Step(`^the expense shows occurred at "([^"]*)" with amount (\S+) "([^"]*)" and description "([^"]*)"$`, expenseMatches)
 	sc.Step(`^the Financial Manager registers an expense without "([^"]*)"$`, registerWithout)
@@ -136,6 +138,22 @@ func notFound() error {
 func invalidID() error {
 	if st.status != http.StatusBadRequest {
 		return fmt.Errorf("expected 400, got %d: %v", st.status, st.body)
+	}
+	return nil
+}
+
+// storedWithCurrency inserts a row directly, bypassing the API validation,
+// to simulate data that did not come through registration (a seed or script).
+func storedWithCurrency(currency string) error {
+	return pool.QueryRow(context.Background(),
+		`INSERT INTO expenses (id, occurred_at, occurred_offset_minutes, amount, currency, description)
+		 VALUES (gen_random_uuid(), now(), 0, 10, $1, 'seeded') RETURNING id::text`, currency).
+		Scan(&st.expenseID)
+}
+
+func internalError() error {
+	if st.status != http.StatusInternalServerError || st.body["title"] != "Internal error" {
+		return fmt.Errorf("expected 500 Internal error, got %d: %v", st.status, st.body)
 	}
 	return nil
 }

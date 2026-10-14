@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"time"
 
@@ -103,6 +104,7 @@ func (h *ExpenseHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
+		log.Printf("get expense %s: %v", id, err)
 		writeProblem(w, http.StatusInternalServerError, "internal", "Internal error", nil)
 		return
 	}

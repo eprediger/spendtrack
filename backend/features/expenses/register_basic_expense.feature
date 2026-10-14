@@ -66,3 +66,8 @@ Feature: Register a basic expense
   Scenario: Reviewing an expense with a malformed id
     When the Financial Manager reviews an expense with a malformed id
     Then the system indicates the id is invalid
+
+  Scenario: Reviewing an expense whose stored data is invalid
+    Given an expense with the unsupported currency "EUR" is stored in the database
+    When the Financial Manager reviews the expense
+    Then the system indicates an internal error

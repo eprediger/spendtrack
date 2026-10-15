@@ -57,21 +57,20 @@ Expected: the hook passes (nothing in the Go code changed).
 
 **Interfaces:**
 - Produces:
-  - `type ItemInput struct { Description string; Quantity, UnitPrice, LineTotal *decimal.Decimal }` (a nil pointer means the field was missing)
   - `type Item struct { Description string; Quantity, UnitPrice, LineTotal decimal.Decimal }`
-  - `func NewItem(in ItemInput) (Item, []FieldError)`. Field names in the errors: `description`, `quantity`, `unit_price`, `line_total` (no position). The description is trimmed in the result.
+  - `func NewItem(description string, quantity, unitPrice, lineTotal *decimal.Decimal) (Item, []FieldError)`. Field names in the errors: `description`, `quantity`, `unit_price`, `line_total` (no position). The description is trimmed in the result.
 
 - [ ] **Step 1: Write the failing tests** in `item_test.go` (use the `dec` and `ptr` helpers of `expense_test.go`)
   - `TestNewItemValid`: input `"  Candies "`, quantity `5`, unit price `150.00`, line total `750.00` gives description `"Candies"` and equal amounts, no errors.
   - `TestNewItemSignedAmounts`: quantity `3`, unit price `-3001.00`, line total `-9003.00` is valid. Unit price `0` and line total `0` are valid.
-  - `TestNewItemValidation` (table, compares `field -> code`): description `"   "` gives `description: required`; quantity nil gives `quantity: required`; quantity `0` and `-1` give `quantity: not_positive`; unit price nil gives `unit_price: required`; line total nil gives `line_total: required`; an empty `ItemInput{}` gives all four `required` together.
+  - `TestNewItemValidation` (table, compares `field -> code`): description `"   "` gives `description: required`; quantity nil gives `quantity: required`; quantity `0` and `-1` give `quantity: not_positive`; unit price nil gives `unit_price: required`; line total nil gives `line_total: required`; an empty attribute set gives all four `required` together.
 
 - [ ] **Step 2: Run to verify they fail**
 
 Run: `go -C backend test ./internal/domain -run TestNewItem`
-Expected: build failure, `undefined: NewItem` and `undefined: ItemInput`.
+Expected: build failure because `NewItem` does not exist.
 
-- [ ] **Step 3: Implement `NewItem(in ItemInput) (Item, []FieldError)` in `item.go`**
+- [ ] **Step 3: Implement `NewItem(description, quantity, unitPrice, lineTotal) (Item, []FieldError)` in `item.go`**
 
 Follow the style of `NewMoney`: collect every error, return `Item{}` when there is any.
 
@@ -87,29 +86,29 @@ git add backend/internal/domain/item.go backend/internal/domain/item_test.go
 git commit -m "feat: add the Item value built only through NewItem"
 ```
 
-### Task 2: `NewExpense` takes items
+### Task 2: Expense adds items
 
 **Files:**
 - Modify: `backend/internal/domain/expense.go`, `backend/internal/domain/expense_test.go`, `backend/internal/application/expense_service.go`
+- Create: `backend/internal/application/expense_service_test.go`
 
 **Interfaces:**
-- Consumes: `ItemInput`, `Item`, `NewItem` (Task 1).
+- Consumes: `Item`, `NewItem` (Task 1).
 - Produces:
   - `Expense` gets `Items []Item` (nil when there are none).
-  - `func NewExpense(occurredAt time.Time, amount *decimal.Decimal, currency *string, description string, items []ItemInput, now time.Time) (*Expense, *ValidationError)`
-  - `application.RegisterInput` gets `Items []domain.ItemInput`. `Register` passes it on.
+  - `func (e *Expense) AddItem(description string, quantity, unitPrice, lineTotal *decimal.Decimal) []FieldError`. It uses `NewItem` and adds only valid items.
+  - `application.ItemInput` carries raw item values in the `RegisterInput` command. `Register` adds each item through `Expense.AddItem`.
 
-- [ ] **Step 1: Write the failing tests** in `expense_test.go`
-  - Update every existing `NewExpense` call to pass `nil` for `items`.
-  - `TestNewExpenseItems`: two valid items keep their order in `e.Items`; no items gives `len(e.Items) == 0`.
-  - `TestNewExpenseItemErrors` (field to code): item 1 with quantity `0` plus an invalid currency gives `items[1].quantity: not_positive` and `currency: unsupported_currency` together. Item 0 with an empty description and item 1 with a nil line total give `items[0].description: required` and `items[1].line_total: required` together.
+- [ ] **Step 1: Write the failing tests**
+  - In `expense_test.go`, `TestExpenseAddItem` adds two valid items in order; an expense with no additions has no items.
+  - In `expense_service_test.go`, `TestRegisterItemErrors` checks item and expense errors together, plus item errors from multiple positions.
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `go -C backend test ./internal/domain`
-Expected: build failure on the `NewExpense` arguments.
+Run: `go -C backend test ./internal/domain ./internal/application`
+Expected: build failure because `Expense.AddItem` is missing.
 
-- [ ] **Step 3: Implement.** `NewExpense` calls `NewItem` for each input, prefixes each error field with `items[<position>].`, and appends them to the expense's own errors. Pass `in.Items` through in `Register`. The handler needs no change yet: the new `RegisterInput` field stays nil until Task 3.
+- [ ] **Step 3: Implement.** Add application-level `ItemInput` to the `RegisterInput` command. `Expense.AddItem` calls `NewItem` and appends only valid items. `Register` adds each command item through `Expense.AddItem`, prefixes errors with `items[<position>].`, and combines them with base expense errors. If base validation fails, validate each item with `NewItem` to collect its errors without constructing or persisting an invalid expense.
 
 - [ ] **Step 4: Run to verify they pass**
 
@@ -133,7 +132,7 @@ git commit -m "feat: validate items when building an expense"
 - Consumes: Task 2.
 - Produces in the handler:
   - `type itemRequest struct { Description *string; Quantity, UnitPrice, LineTotal *string }` with JSON keys `description`, `quantity`, `unit_price`, `line_total`; `createRequest` gets `Items []itemRequest` (`items`).
-  - `func parseItems(reqs []itemRequest) ([]domain.ItemInput, []domain.FieldError)`. Unparsable decimal text gives a nil pointer plus an `invalid` error named `items[i].<field>`. A missing field gives a nil pointer and no error.
+  - `func parseItems(reqs []itemRequest) ([]application.ItemInput, []domain.FieldError)`. Unparsable decimal text gives a nil pointer plus an `invalid` error named `items[i].<field>`. A missing field gives a nil pointer and no error.
   - `func withParseErrors(fields, parseErrs []domain.FieldError) []domain.FieldError`. It replaces domain errors that have the same field name. It generalises `withAmountError`, which is removed.
   - `type itemResponse struct { Description, Quantity, UnitPrice, LineTotal string }` with the same JSON keys; `expenseResponse` gets `Items []itemResponse` (`items`), never nil.
 - Produces in the repository: `func numericText(d decimal.Decimal) string` (scale-preserving text, replaces the inline `StringFixed` in `Save`).
@@ -213,7 +212,7 @@ git commit -m "feat: register and review expense items"
 - [ ] **Step 2: Add the step bindings:** `registers an expense with an item of quantity (\S+), unit price (\S+) and line total (\S+)`, the same with `an item "([^"]*)" of quantity …`, `registers an expense with an item without "([^"]*)"`, `registers an expense with an item whose "([^"]*)" is "([^"]*)"`, and `the system indicates the item "([^"]*)" is (required|invalid)` (an error on any position whose field ends with the field name, spaces turned into underscores; `required` needs code `required`, `invalid` accepts any code).
 
 - [ ] **Step 3: Write the failing handler tests**
-  - `TestParseItemsNullItem`: JSON `{"items":[null]}` decoded into `createRequest` and parsed gives one `ItemInput` with an empty description and three nil pointers.
+  - `TestParseItemsNullItem`: JSON `{"items":[null]}` decoded into `createRequest` and parsed gives one `application.ItemInput` with an empty description and three nil pointers.
   - `TestCreateItemsNotAnArray`: `NewExpenseHandler(nil).Create` with body `{"items":"x"}` answers `400` and the `malformed-json` problem (the handler returns before using the service).
 
 - [ ] **Step 4: Run to verify the new tests behave**

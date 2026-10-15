@@ -86,7 +86,8 @@ An item has no currency of its own.
 ## Domain Model
 
 * `Item` is a value inside the `Expense`: description, quantity, unit price, line total. The amounts are `decimal.Decimal`. They are not `Money`: the currency is the expense's, and `Money` keeps its rule that an amount is positive.
-* `NewItem` is the only way to build an `Item`. `NewExpense` calls it for each item and returns every violated field. The repository calls it for each stored item.
+* `NewItem(description, quantity, unitPrice, lineTotal)` is the only way to build an `Item`. `Expense.AddItem` calls it before adding the item. The repository calls it for each stored item.
+* `application.RegisterInput` is the command between the HTTP adapter and service. It carries application-level item inputs. The application service adds each item through `Expense.AddItem`, so the domain owns item construction and validation.
 * The HTTP adapter parses the decimals (as it does for `amount`) and merges its parse errors with the domain's.
 
 ## Persistence

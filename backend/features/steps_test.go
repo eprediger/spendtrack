@@ -42,6 +42,7 @@ func initializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^a Financial Context$`, func() error { return nil })
 	sc.Step(`^the Financial Manager registers an expense at "([^"]*)" for (\S+) "([^"]*)" described as "([^"]*)"$`, registerExpense)
 	sc.Step(`^an expense at "([^"]*)" for (\S+) "([^"]*)" described as "([^"]*)" was registered$`, registeredExpense)
+	sc.Step(`^the expense is recorded$`, recordedExpense)
 	sc.Step(`^the expense is recorded in the Financial Context$`, recordedExpense)
 	sc.Step(`^the Financial Manager reviews the expense$`, reviewExpense)
 	sc.Step(`^the Financial Manager reviews an expense with an unknown id$`, reviewUnknownExpense)
@@ -63,6 +64,8 @@ func initializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the Financial Manager registers an expense with a purchase item without "([^"]*)"$`, registerPurchaseItemWithout)
 	sc.Step(`^the Financial Manager registers an expense with a purchase item whose "([^"]*)" is "([^"]*)"$`, registerPurchaseItemWithInvalid)
 	sc.Step(`^the system indicates the purchase item "([^"]*)" is (required|invalid)$`, indicatesPurchaseItemError)
+	sc.Step(`^the purchase item keeps the line total (\S+) as printed$`, purchaseItemKeepsLineTotal)
+	sc.Step(`^the purchase item shows quantity (\S+) and line total (\S+)$`, purchaseItemShowsQuantityAndLineTotal)
 	sc.Step(`^the Financial Manager registers an expense without "([^"]*)"$`, registerWithout)
 	sc.Step(`^the Financial Manager registers an expense with:$`, registerWithTable)
 	sc.Step(`^the Financial Manager registers an expense that occurs in the future for (\S+) "([^"]*)" described as "([^"]*)"$`, registerFuture)
@@ -242,6 +245,39 @@ func indicatesPurchaseItemError(field, code string) error {
 		}
 	}
 	return fmt.Errorf("no purchase item error for %q (%s) in %v", field, code, st.body)
+}
+
+func purchaseItemKeepsLineTotal(lineTotal string) error {
+	items, ok := st.body["items"].([]any)
+	if !ok || len(items) == 0 {
+		return fmt.Errorf("expected a purchase item in response, got %v", st.body["items"])
+	}
+	item, ok := items[0].(map[string]any)
+	if !ok {
+		return fmt.Errorf("purchase item has unexpected shape: %v", items[0])
+	}
+	if got := item["line_total"]; got != lineTotal {
+		return fmt.Errorf("line_total: want %q got %v", lineTotal, got)
+	}
+	return nil
+}
+
+func purchaseItemShowsQuantityAndLineTotal(quantity, lineTotal string) error {
+	items, ok := st.body["items"].([]any)
+	if !ok || len(items) == 0 {
+		return fmt.Errorf("expected a purchase item in response, got %v", st.body["items"])
+	}
+	item, ok := items[0].(map[string]any)
+	if !ok {
+		return fmt.Errorf("purchase item has unexpected shape: %v", items[0])
+	}
+	if got := item["quantity"]; got != quantity {
+		return fmt.Errorf("quantity: want %q got %v", quantity, got)
+	}
+	if got := item["line_total"]; got != lineTotal {
+		return fmt.Errorf("line_total: want %q got %v", lineTotal, got)
+	}
+	return nil
 }
 
 func storedWithEmptyPurchaseItemDescription() error {

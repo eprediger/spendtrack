@@ -27,19 +27,16 @@ Feature: Itemize an expense
     Then the expense is recorded in the Financial Context
     And the expense has no items
 
-  @todo
   Scenario: The printed line total differs from quantity times unit price
     When the Financial Manager registers an expense with a purchase item of quantity 3, unit price 33.33 and line total 100.00
     Then the expense is recorded
     And the purchase item keeps the line total 100.00 as printed
 
-  @todo
   Scenario: A returned deposit is a negative purchase item
     When the Financial Manager registers an expense with a purchase item "RETURNABLE BOTTLE" of quantity 3, unit price -3001.00 and line total -9003.00
     Then the expense is recorded
     And the purchase item shows quantity 3 and line total -9003.00
 
-  @todo
   Scenario: A quantity can be a fraction
     When the Financial Manager registers an expense with a purchase item of quantity 0.750, unit price 3200.00 and line total 2400.00
     Then the expense is recorded

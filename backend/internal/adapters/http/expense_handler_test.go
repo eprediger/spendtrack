@@ -1,6 +1,10 @@
 package httpapi
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -97,4 +101,32 @@ func TestToResponseItems(t *testing.T) {
 		UnitPrice:   "3200.00",
 		LineTotal:   "2400.00",
 	}, response.Items[0])
+}
+
+func TestParseItemsNullItem(t *testing.T) {
+	var req createRequest
+	require.NoError(t, json.Unmarshal([]byte(`{"items":[null]}`), &req))
+
+	items, errs := parseItems(req.Items)
+	require.Empty(t, errs)
+	require.Len(t, items, 1)
+	assert.Empty(t, items[0].Description)
+	assert.Nil(t, items[0].Quantity)
+	assert.Nil(t, items[0].UnitPrice)
+	assert.Nil(t, items[0].LineTotal)
+}
+
+func TestCreateItemsNotAnArray(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/expenses", strings.NewReader(`{"items":"x"}`))
+	recorder := httptest.NewRecorder()
+
+	NewExpenseHandler(nil).Create(recorder, req)
+
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
+	assert.Equal(t, "application/problem+json", recorder.Header().Get("Content-Type"))
+	var got problem
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &got))
+	assert.Equal(t, problemType+"malformed-json", got.Type)
+	assert.Equal(t, "Malformed JSON", got.Title)
+	assert.Equal(t, http.StatusBadRequest, got.Status)
 }

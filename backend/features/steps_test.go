@@ -58,6 +58,11 @@ func initializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^an expense with purchase items was registered$`, registeredExpenseWithItems)
 	sc.Step(`^the expense shows each purchase item with its description, quantity, unit price and line total$`, expenseShowsPurchaseItems)
 	sc.Step(`^an expense with a purchase item with an empty description is stored in the database$`, storedWithEmptyPurchaseItemDescription)
+	sc.Step(`^the Financial Manager registers an expense with a purchase item of quantity (\S+), unit price (\S+) and line total (\S+)$`, registerPurchaseItem)
+	sc.Step(`^the Financial Manager registers an expense with a purchase item "([^"]*)" of quantity (\S+), unit price (\S+) and line total (\S+)$`, registerNamedPurchaseItem)
+	sc.Step(`^the Financial Manager registers an expense with a purchase item without "([^"]*)"$`, registerPurchaseItemWithout)
+	sc.Step(`^the Financial Manager registers an expense with a purchase item whose "([^"]*)" is "([^"]*)"$`, registerPurchaseItemWithInvalid)
+	sc.Step(`^the system indicates the purchase item "([^"]*)" is (required|invalid)$`, indicatesPurchaseItemError)
 	sc.Step(`^the Financial Manager registers an expense without "([^"]*)"$`, registerWithout)
 	sc.Step(`^the Financial Manager registers an expense with:$`, registerWithTable)
 	sc.Step(`^the Financial Manager registers an expense that occurs in the future for (\S+) "([^"]*)" described as "([^"]*)"$`, registerFuture)
@@ -178,6 +183,65 @@ func expenseShowsPurchaseItems() error {
 		}
 	}
 	return nil
+}
+
+func registerPurchaseItem(quantity, unitPrice, lineTotal string) error {
+	return registerNamedPurchaseItem("Purchase item", quantity, unitPrice, lineTotal)
+}
+
+func registerNamedPurchaseItem(description, quantity, unitPrice, lineTotal string) error {
+	return postExpenseWithPurchaseItem(map[string]string{
+		"description": description,
+		"quantity":    quantity,
+		"unit_price":  unitPrice,
+		"line_total":  lineTotal,
+	})
+}
+
+func registerPurchaseItemWithout(field string) error {
+	item := map[string]string{
+		"description": "Purchase item",
+		"quantity":    "1",
+		"unit_price":  "150.00",
+		"line_total":  "150.00",
+	}
+	delete(item, strings.ReplaceAll(field, " ", "_"))
+	return postExpenseWithPurchaseItem(item)
+}
+
+func registerPurchaseItemWithInvalid(field, value string) error {
+	item := map[string]string{
+		"description": "Purchase item",
+		"quantity":    "1",
+		"unit_price":  "150.00",
+		"line_total":  "150.00",
+	}
+	item[strings.ReplaceAll(field, " ", "_")] = value
+	return postExpenseWithPurchaseItem(item)
+}
+
+func postExpenseWithPurchaseItem(item map[string]string) error {
+	return post("/api/v1/expenses", map[string]any{
+		"occurred_at": "2026-10-05T16:53:34-03:00",
+		"amount":      "14000.00",
+		"currency":    "ARS",
+		"description": "Gas station store",
+		"items":       []map[string]string{item},
+	})
+}
+
+func indicatesPurchaseItemError(field, code string) error {
+	field = strings.ReplaceAll(field, " ", "_")
+	errs, _ := st.body["errors"].([]any)
+	for _, e := range errs {
+		m, _ := e.(map[string]any)
+		gotField, _ := m["field"].(string)
+		gotCode, _ := m["code"].(string)
+		if strings.HasSuffix(gotField, "."+field) && (code == "invalid" || gotCode == code) {
+			return nil
+		}
+	}
+	return fmt.Errorf("no purchase item error for %q (%s) in %v", field, code, st.body)
 }
 
 func storedWithEmptyPurchaseItemDescription() error {

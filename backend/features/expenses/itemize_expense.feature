@@ -45,7 +45,6 @@ Feature: Itemize an expense
     Then the expense is recorded
     And the purchase item shows quantity 0.750 and line total 2400.00
 
-  @todo
   Scenario Outline: A purchase item quantity that is not positive is rejected
     When the Financial Manager registers an expense with a purchase item of quantity <quantity>, unit price 150.00 and line total 150.00
     Then the registration is rejected
@@ -56,7 +55,6 @@ Feature: Itemize an expense
       | 0        |
       | -1       |
 
-  @todo
   Scenario Outline: Incomplete purchase item information is rejected
     When the Financial Manager registers an expense with a purchase item without "<field>"
     Then the registration is rejected
@@ -68,6 +66,17 @@ Feature: Itemize an expense
       | quantity    |
       | unit price  |
       | line total  |
+
+  Scenario Outline: A non-numeric purchase item amount is rejected
+    When the Financial Manager registers an expense with a purchase item whose "<field>" is "abc"
+    Then the registration is rejected
+    And the system indicates the purchase item "<field>" is invalid
+
+    Examples:
+      | field      |
+      | quantity   |
+      | unit price |
+      | line total |
 
   Scenario: Reviewing an expense whose stored purchase item is invalid
     Given an expense with a purchase item with an empty description is stored in the database

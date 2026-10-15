@@ -1,6 +1,6 @@
 # S4a — Break the Expense Down Into Items: Specification
 
-**Status:** approved
+**Status:** implemented
 
 ## Traceability
 

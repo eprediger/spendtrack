@@ -197,7 +197,7 @@ A product or service acquired in a purchase.
 
 ## Purchase Item
 
-**Status:** provisional
+**Status:** validated by S4a (firm agreement — see expense-registration [decisions.md](epics/financial-management/features/expense-registration/decisions.md))
 
 One line of a purchase. A purchase item has a description, a quantity, a unit price and a line total. The line total is the printed amount. It can differ from quantity times unit price. A purchase item can be negative (for example a returned deposit).
 

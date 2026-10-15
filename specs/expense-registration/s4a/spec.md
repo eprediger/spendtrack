@@ -85,9 +85,9 @@ An item has no currency of its own.
 
 ## Domain Model
 
-* `Item` is a value inside the `Expense`: description, quantity, unit price, line total. The amounts are `decimal.Decimal`. They are not `Money`: the currency is the expense's, and `Money` keeps its rule that an amount is positive.
-* `NewItem(description, quantity, unitPrice, lineTotal)` is the only way to build an `Item`. `Expense.AddItem` calls it before adding the item. The repository calls it for each stored item.
-* `application.RegisterInput` is the command between the HTTP adapter and service. It carries application-level item inputs. The application service adds each item through `Expense.AddItem`, so the domain owns item construction and validation.
+* `PurchaseItem` is a value inside the `Expense`: description, quantity, unit price, line total. The amounts are `decimal.Decimal`. They are not `Money`: the currency is the expense's, and `Money` keeps its rule that an amount is positive.
+* `NewPurchaseItem(description, quantity, unitPrice, lineTotal)` is the only way to build a `PurchaseItem`. `NewExpense` calls it for each `PurchaseItemInput` and returns every violated field. The repository calls it for each stored purchase item.
+* `application.RegisterInput` is the command between the HTTP adapter and service. It carries `[]domain.PurchaseItemInput`; `NewExpense` owns purchase item construction and validation.
 * The HTTP adapter parses the decimals (as it does for `amount`) and merges its parse errors with the domain's.
 
 ## Persistence
@@ -95,7 +95,7 @@ An item has no currency of its own.
 * A new table `expense_items`: `expense_id` (references `expenses`, deleted with it), `position` (the order), `description`, `quantity` (greater than 0), `unit_price`, `line_total`. The primary key is `(expense_id, position)`.
 * The expense and its items are saved in one transaction.
 * Decimals are sent to Postgres as text with their scale, as for the amount, so `0.750` is not stored as `0.75`.
-* Loading reads the items in order and builds each one with `NewItem`. If a stored item fails, the review answers the generic `500` and the details go to the log, as for a stored `Money`. The database checks (`quantity > 0`, not null) are a second guard.
+* Loading reads the items in order and builds each one with `NewPurchaseItem`. If a stored item fails, the review answers the generic `500` and the details go to the log, as for a stored `Money`. The database checks (`quantity > 0`, not null) are a second guard.
 
 ## Error Semantics
 

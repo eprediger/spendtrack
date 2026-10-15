@@ -19,6 +19,7 @@ type RegisterInput struct {
 	Amount      *decimal.Decimal
 	Currency    *string
 	Description *string
+	Items       []domain.PurchaseItemInput
 }
 
 // ExpenseService holds the expense use cases.
@@ -37,7 +38,7 @@ func (s *ExpenseService) Register(ctx context.Context, in RegisterInput) (*domai
 	if in.Description != nil {
 		desc = *in.Description
 	}
-	e, verr := domain.NewExpense(*in.OccurredAt, in.Amount, in.Currency, desc, s.now())
+	e, verr := domain.NewExpense(*in.OccurredAt, in.Amount, in.Currency, desc, in.Items, s.now())
 	if verr != nil {
 		return nil, verr
 	}

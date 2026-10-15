@@ -6,14 +6,20 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// Item is one line in an expense breakdown.
-type Item struct {
+// PurchaseItemInput contains raw attributes for an item inside a new Expense.
+type PurchaseItemInput struct {
+	Description                    string
+	Quantity, UnitPrice, LineTotal *decimal.Decimal
+}
+
+// PurchaseItem is one line of a purchase recorded in an expense.
+type PurchaseItem struct {
 	Description                    string
 	Quantity, UnitPrice, LineTotal decimal.Decimal
 }
 
-// NewItem builds a valid Item or reports every violated field.
-func NewItem(description string, quantity, unitPrice, lineTotal *decimal.Decimal) (Item, []FieldError) {
+// NewPurchaseItem builds a valid PurchaseItem or reports every violated field.
+func NewPurchaseItem(description string, quantity, unitPrice, lineTotal *decimal.Decimal) (PurchaseItem, []FieldError) {
 	var errs []FieldError
 
 	description = strings.TrimSpace(description)
@@ -45,9 +51,9 @@ func NewItem(description string, quantity, unitPrice, lineTotal *decimal.Decimal
 	}
 
 	if len(errs) > 0 {
-		return Item{}, errs
+		return PurchaseItem{}, errs
 	}
-	return Item{
+	return PurchaseItem{
 		Description: description,
 		Quantity:    q,
 		UnitPrice:   price,

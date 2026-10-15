@@ -18,7 +18,7 @@ The following implementation slicing is agreed. Each slice activates the domain 
 | S1    | [Register a basic expense (date and time, amount, currency, description) and review it](../../../../../backend/features/expenses/register_basic_expense.feature) | Expense, Financial Context                      |
 | S2    | Classify the expense                                                                                                                                             | Classification                                  |
 | S3    | Associate supporting documentation (expenses may have none)                                                                                                      | Document                                        |
-| S4a   | [Break the expense down into items](../../../../../backend/features/expenses/itemize_expense.feature)                                                            | Purchase, Item, Product                         |
+| S4a   | [Break the expense down into items](../../../../../backend/features/expenses/itemize_expense.feature)                                                            | Purchase, Purchase Item, Product                 |
 | S4b   | [Record store discounts](../../../../../backend/features/expenses/record_store_discounts.feature)                                                                | Reduction                                       |
 | S4c   | [Review the effective cost](../../../../../backend/features/expenses/review_effective_cost.feature)                                                              | Charged Total, Effective Cost                   |
 | S4d   | [Record a reduction from another actor (expected, then received)](../../../../../backend/features/expenses/record_expected_reduction.feature)                    | Reduction, Promotion, Reimbursement             |
@@ -92,7 +92,7 @@ If the check is added, apply it to amounts and line totals only. Unit prices and
 
 #### Stored Expenses Are Validated When They Are Loaded
 
-When an expense is loaded from the database, its money goes through the same `NewMoney` check as new input, and, from S4a on, each item goes through the same `NewItem` check. An object is built in one way only, so the model never holds invalid data. A row that fails (for example a currency outside the supported set, written by a seed or script) is not served: the API answers with the generic internal error, and the details go to the log. No second constructor for loading is added.
+When an expense is loaded from the database, its money goes through the same `NewMoney` check as new input, and, from S4a on, each purchase item goes through the same `NewPurchaseItem` check. An object is built in one way only, so the model never holds invalid data. A row that fails (for example a currency outside the supported set, written by a seed or script) is not served: the API answers with the generic internal error, and the details go to the log. No second constructor for loading is added.
 
 Consequence: rules for new input also apply to old data. If a row holds a currency that this version does not support (for example after rolling back a deploy that added one), it cannot be read.
 
@@ -141,9 +141,9 @@ None yet. The feature-wide agreement "Supporting Documents Are Evidence" applies
 
 ### Agreements
 
-#### Items Carry Description, Quantity, Unit Price and Line Total
+#### Purchase Items Carry Description, Quantity, Unit Price and Line Total
 
-An expense can be broken down into items. Each item has a description, a quantity, a unit price and a line total. The line total is the amount the receipt prints. It can differ from quantity times unit price. Items are optional.
+An expense can be broken down into purchase items. Each purchase item has a description, a quantity, a unit price and a line total. The line total is the amount the receipt prints. It can differ from quantity times unit price. Purchase items are optional.
 
 #### Quantity Is a Positive Decimal Number
 
@@ -153,13 +153,13 @@ The quantity is greater than zero. It is a decimal number, because an item sold 
 
 The unit price and the line total keep the sign the receipt prints. A returned deposit is printed as a positive quantity with a negative unit price (for example 3 units at -3,001.00, a line total of -9,003.00). S4a has no other rule about the sign of these two amounts.
 
-#### Items Share the Currency of the Expense
+#### Purchase Items Share the Currency of the Expense
 
-All items of an expense are in the currency of the expense. A receipt with items in different currencies is not supported.
+All purchase items of an expense are in the currency of the expense. A receipt with items in different currencies is not supported.
 
-#### Items Are Not Checked Against the Amount in S4a
+#### Purchase Items Are Not Checked Against the Amount in S4a
 
-S4a does not check that the items add up to the amount of the expense. The product owner prefers that they add up exactly. That check needs the store discounts of S4b, so it is an open decision there.
+S4a does not check that the purchase items add up to the amount of the expense. The product owner prefers that they add up exactly. That check needs the store discounts of S4b, so it is an open decision there.
 
 ### Open Decisions
 

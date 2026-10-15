@@ -4,7 +4,7 @@
 
 **Goal:** An expense can carry optional items (description, quantity, unit price, line total), and reviewing the expense shows them.
 
-**Architecture:** Hexagonal, as in S1. `domain.Item` is built only by `domain.NewItem`, called by `NewExpense` for registration and by the Postgres repository for loading. The HTTP adapter parses the decimals and merges its parse errors with the domain's. Items live in a new table, saved with the expense in one transaction.
+**Architecture:** Hexagonal, as in S1. `domain.PurchaseItem` is built only by `domain.NewPurchaseItem`, called by `NewExpense` for registration and by the Postgres repository for loading. The HTTP adapter parses the decimals and merges its parse errors with the domain's. Items live in a new table, saved with the expense in one transaction.
 
 **Tech Stack:** Go, `net/http`, `pgx/v5`, `shopspring/decimal`, `golang-migrate`, `godog`, `testify`.
 
@@ -13,10 +13,10 @@
 ## Global Constraints
 
 * Decimals are strings in requests and responses, and keep their scale (`"0.750"` stays `"0.750"`).
-* Item errors are named `items[<position>].<field>`, position from 0, fields `description`, `quantity`, `unit_price`, `line_total`. Codes: `required`, `invalid`, `not_positive`.
-* `NewItem` is the only way to build an `Item`, for registration and for loading.
+* Purchase item errors are named `items[<position>].<field>`, position from 0, fields `description`, `quantity`, `unit_price`, `line_total`. Codes: `required`, `invalid`, `not_positive`.
+* `NewPurchaseItem` is the only way to build a `PurchaseItem`, for registration and for loading.
 * `quantity` > 0. `unit_price` and `line_total` take any sign, zero included. No check between item fields, and none between items and the amount.
-* Item amounts are `decimal.Decimal`, not `Money`. An item has no currency.
+* Purchase item amounts are `decimal.Decimal`, not `Money`. A purchase item has no currency.
 * Internal errors answer the generic `500`. The details go to the log only.
 * Run only one test suite at a time (shared Postgres, see `AGENTS.md`). Verification is `make -C backend ci`.
 * Commits use Conventional Commits. The pre-commit hook runs the full CI, so every commit must be green.
@@ -49,7 +49,7 @@ git commit -m "docs: add S4a items specification, agreements and task plan"
 
 Expected: the hook passes (nothing in the Go code changed).
 
-### Task 1: `NewItem`
+### Task 1: `NewPurchaseItem`
 
 **Files:**
 - Create: `backend/internal/domain/item.go`
@@ -57,22 +57,22 @@ Expected: the hook passes (nothing in the Go code changed).
 
 **Interfaces:**
 - Produces:
-  - `type Item struct { Description string; Quantity, UnitPrice, LineTotal decimal.Decimal }`
-  - `func NewItem(description string, quantity, unitPrice, lineTotal *decimal.Decimal) (Item, []FieldError)`. Field names in the errors: `description`, `quantity`, `unit_price`, `line_total` (no position). The description is trimmed in the result.
+  - `type PurchaseItem struct { Description string; Quantity, UnitPrice, LineTotal decimal.Decimal }`
+  - `func NewPurchaseItem(description string, quantity, unitPrice, lineTotal *decimal.Decimal) (PurchaseItem, []FieldError)`. Field names in the errors: `description`, `quantity`, `unit_price`, `line_total` (no position). The description is trimmed in the result.
 
 - [ ] **Step 1: Write the failing tests** in `item_test.go` (use the `dec` and `ptr` helpers of `expense_test.go`)
-  - `TestNewItemValid`: input `"  Candies "`, quantity `5`, unit price `150.00`, line total `750.00` gives description `"Candies"` and equal amounts, no errors.
-  - `TestNewItemSignedAmounts`: quantity `3`, unit price `-3001.00`, line total `-9003.00` is valid. Unit price `0` and line total `0` are valid.
-  - `TestNewItemValidation` (table, compares `field -> code`): description `"   "` gives `description: required`; quantity nil gives `quantity: required`; quantity `0` and `-1` give `quantity: not_positive`; unit price nil gives `unit_price: required`; line total nil gives `line_total: required`; an empty attribute set gives all four `required` together.
+  - `TestNewPurchaseItemValid`: input `"  Candies "`, quantity `5`, unit price `150.00`, line total `750.00` gives description `"Candies"` and equal amounts, no errors.
+  - `TestNewPurchaseItemSignedAmounts`: quantity `3`, unit price `-3001.00`, line total `-9003.00` is valid. Unit price `0` and line total `0` are valid.
+  - `TestNewPurchaseItemValidation` (table, compares `field -> code`): description `"   "` gives `description: required`; quantity nil gives `quantity: required`; quantity `0` and `-1` give `quantity: not_positive`; unit price nil gives `unit_price: required`; line total nil gives `line_total: required`; an empty attribute set gives all four `required` together.
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `go -C backend test ./internal/domain -run TestNewItem`
-Expected: build failure because `NewItem` does not exist.
+Run: `go -C backend test ./internal/domain -run TestNewPurchaseItem`
+Expected: build failure because `NewPurchaseItem` does not exist.
 
-- [ ] **Step 3: Implement `NewItem(description, quantity, unitPrice, lineTotal) (Item, []FieldError)` in `item.go`**
+- [ ] **Step 3: Implement `NewPurchaseItem(description, quantity, unitPrice, lineTotal) (PurchaseItem, []FieldError)` in `purchase_item.go`**
 
-Follow the style of `NewMoney`: collect every error, return `Item{}` when there is any.
+Follow the style of `NewMoney`: collect every error, return `PurchaseItem{}` when there is any.
 
 - [ ] **Step 4: Run to verify they pass**
 
@@ -82,33 +82,34 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add backend/internal/domain/item.go backend/internal/domain/item_test.go
-git commit -m "feat: add the Item value built only through NewItem"
+git add backend/internal/domain/purchase_item.go backend/internal/domain/purchase_item_test.go
+git commit -m "feat: add the PurchaseItem value built only through NewPurchaseItem"
 ```
 
-### Task 2: Expense adds items
+### Task 2: `NewExpense` takes items
 
 **Files:**
 - Modify: `backend/internal/domain/expense.go`, `backend/internal/domain/expense_test.go`, `backend/internal/application/expense_service.go`
-- Create: `backend/internal/application/expense_service_test.go`
 
 **Interfaces:**
-- Consumes: `Item`, `NewItem` (Task 1).
+- Consumes: `PurchaseItem`, `NewPurchaseItem` (Task 1).
 - Produces:
-  - `Expense` gets `Items []Item` (nil when there are none).
-  - `func (e *Expense) AddItem(description string, quantity, unitPrice, lineTotal *decimal.Decimal) []FieldError`. It uses `NewItem` and adds only valid items.
-  - `application.ItemInput` carries raw item values in the `RegisterInput` command. `Register` adds each item through `Expense.AddItem`.
+  - `Expense` gets `Items []PurchaseItem` (nil when there are none).
+  - `type PurchaseItemInput struct { Description string; Quantity, UnitPrice, LineTotal *decimal.Decimal }` carries raw item values for aggregate construction.
+  - `func NewExpense(occurredAt time.Time, amount *decimal.Decimal, currency *string, description string, items []PurchaseItemInput, now time.Time) (*Expense, *ValidationError)`
+  - `application.RegisterInput` is the adapter-to-service command and gets `Items []domain.PurchaseItemInput`. `Register` passes it on.
 
-- [ ] **Step 1: Write the failing tests**
-  - In `expense_test.go`, `TestExpenseAddItem` adds two valid items in order; an expense with no additions has no items.
-  - In `expense_service_test.go`, `TestRegisterItemErrors` checks item and expense errors together, plus item errors from multiple positions.
+- [ ] **Step 1: Write the failing tests** in `expense_test.go`
+  - Update every existing `NewExpense` call to pass `nil` for `items`.
+  - `TestNewExpenseItems`: two valid items keep their order in `e.Items`; no items gives `len(e.Items) == 0`.
+  - `TestNewExpenseItemErrors` (field to code): item 1 with quantity `0` plus an invalid currency gives `items[1].quantity: not_positive` and `currency: unsupported_currency` together. Item 0 with an empty description and item 1 with a nil line total give `items[0].description: required` and `items[1].line_total: required` together.
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `go -C backend test ./internal/domain ./internal/application`
-Expected: build failure because `Expense.AddItem` is missing.
+Run: `go -C backend test ./internal/domain`
+Expected: build failure on the `NewExpense` arguments.
 
-- [ ] **Step 3: Implement.** Add application-level `ItemInput` to the `RegisterInput` command. `Expense.AddItem` calls `NewItem` and appends only valid items. `Register` adds each command item through `Expense.AddItem`, prefixes errors with `items[<position>].`, and combines them with base expense errors. If base validation fails, validate each item with `NewItem` to collect its errors without constructing or persisting an invalid expense.
+- [ ] **Step 3: Implement.** `NewExpense` calls `NewPurchaseItem` for each input, prefixes each error field with `items[<position>].`, and appends them to the expense's own errors. Pass `in.Items` through in `Register`. The handler needs no change yet: the new `RegisterInput` field stays nil until Task 3.
 
 - [ ] **Step 4: Run to verify they pass**
 
@@ -119,7 +120,7 @@ Expected: PASS.
 
 ```bash
 git add backend/internal
-git commit -m "feat: validate items when building an expense"
+git commit -m "feat: validate purchase items when building an expense"
 ```
 
 ### Task 3: Items round trip through the API
@@ -132,7 +133,7 @@ git commit -m "feat: validate items when building an expense"
 - Consumes: Task 2.
 - Produces in the handler:
   - `type itemRequest struct { Description *string; Quantity, UnitPrice, LineTotal *string }` with JSON keys `description`, `quantity`, `unit_price`, `line_total`; `createRequest` gets `Items []itemRequest` (`items`).
-  - `func parseItems(reqs []itemRequest) ([]application.ItemInput, []domain.FieldError)`. Unparsable decimal text gives a nil pointer plus an `invalid` error named `items[i].<field>`. A missing field gives a nil pointer and no error.
+  - `func parseItems(reqs []itemRequest) ([]domain.PurchaseItemInput, []domain.FieldError)`. Unparsable decimal text gives a nil pointer plus an `invalid` error named `items[i].<field>`. A missing field gives a nil pointer and no error.
   - `func withParseErrors(fields, parseErrs []domain.FieldError) []domain.FieldError`. It replaces domain errors that have the same field name. It generalises `withAmountError`, which is removed.
   - `type itemResponse struct { Description, Quantity, UnitPrice, LineTotal string }` with the same JSON keys; `expenseResponse` gets `Items []itemResponse` (`items`), never nil.
 - Produces in the repository: `func numericText(d decimal.Decimal) string` (scale-preserving text, replaces the inline `StringFixed` in `Save`).
@@ -167,7 +168,7 @@ Expected: the handler tests fail to build (`undefined: parseItems`); the scenari
 - [ ] **Step 5: Implement**
   - Migration `0002_expense_items`: table `expense_items` with `expense_id UUID NOT NULL REFERENCES expenses(id) ON DELETE CASCADE`, `position INTEGER NOT NULL`, `description TEXT NOT NULL`, `quantity NUMERIC NOT NULL CHECK (quantity > 0)`, `unit_price NUMERIC NOT NULL`, `line_total NUMERIC NOT NULL`, `PRIMARY KEY (expense_id, position)`. The down file drops the table.
   - `Save`: one transaction, the expense first, then each item with its position, amounts as `numericText`.
-  - `FindByID`: after the money check, read the items `ORDER BY position` and build each with `NewItem`. If one fails, return an error (the handler already answers `500` and logs it).
+  - `FindByID`: after the money check, read the items `ORDER BY position` and build each with `NewPurchaseItem`. If one fails, return an error (the handler already answers `500` and logs it).
   - Handler: parse with `parseItems`, merge parse errors with `withParseErrors` (amount error included), format the response items with the same scale-preserving formatter as the amount.
 
 - [ ] **Step 6: Run to verify they pass**
@@ -212,7 +213,7 @@ git commit -m "feat: register and review expense items"
 - [ ] **Step 2: Add the step bindings:** `registers an expense with an item of quantity (\S+), unit price (\S+) and line total (\S+)`, the same with `an item "([^"]*)" of quantity …`, `registers an expense with an item without "([^"]*)"`, `registers an expense with an item whose "([^"]*)" is "([^"]*)"`, and `the system indicates the item "([^"]*)" is (required|invalid)` (an error on any position whose field ends with the field name, spaces turned into underscores; `required` needs code `required`, `invalid` accepts any code).
 
 - [ ] **Step 3: Write the failing handler tests**
-  - `TestParseItemsNullItem`: JSON `{"items":[null]}` decoded into `createRequest` and parsed gives one `application.ItemInput` with an empty description and three nil pointers.
+  - `TestParseItemsNullItem`: JSON `{"items":[null]}` decoded into `createRequest` and parsed gives one `PurchaseItemInput` with an empty description and three nil pointers.
   - `TestCreateItemsNotAnArray`: `NewExpenseHandler(nil).Create` with body `{"items":"x"}` answers `400` and the `malformed-json` problem (the handler returns before using the service).
 
 - [ ] **Step 4: Run to verify the new tests behave**
@@ -262,7 +263,7 @@ git commit -m "test: pin item sign, printed total and fractional quantity"
 
 - [ ] **Step 1:** Make sure no `@todo` is left in `itemize_expense.feature`. The first line is `@expense-registration @s4a`.
 
-- [ ] **Step 2:** In `product/glossary.md`, change the status of `Item` to `validated by S4a (firm agreement — see expense-registration [decisions.md](epics/financial-management/features/expense-registration/decisions.md))`. Leave `Purchase` and `Product` as they are (S4a does not activate them).
+- [ ] **Step 2:** In `product/glossary.md`, change the status of `Purchase Item` to `validated by S4a (firm agreement — see expense-registration [decisions.md](epics/financial-management/features/expense-registration/decisions.md))`. Leave `Purchase` and `Product` as they are (S4a does not activate them).
 
 - [ ] **Step 3:** In `spec.md`, change the status to `implemented`.
 
@@ -275,7 +276,7 @@ Expected: 0 lint issues, all scenarios run (none skipped as `@todo` in `itemize_
 
 ```bash
 git add backend/features product/glossary.md specs/expense-registration/s4a/spec.md
-git commit -m "docs: mark S4a as implemented and Item as validated"
+git commit -m "docs: mark S4a as implemented and Purchase Item as validated"
 ```
 
 ## Left Out On Purpose

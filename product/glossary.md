@@ -195,11 +195,11 @@ A product or service acquired in a purchase.
 
 **En español:** producto (o servicio).
 
-## Item
+## Purchase Item
 
 **Status:** provisional
 
-One line of a purchase. An item has a description, a quantity, a unit price and a line total. The line total is the printed amount. It can differ from quantity times unit price. An item can be negative (for example a returned deposit).
+One line of a purchase. A purchase item has a description, a quantity, a unit price and a line total. The line total is the printed amount. It can differ from quantity times unit price. A purchase item can be negative (for example a returned deposit).
 
 **En español:** ítem o renglón (cada línea de un ticket o de una compra).
 
@@ -294,7 +294,7 @@ How to read the tables:
 * Not all fields are equally important or needed now.
 * The receipt format is the most common one and the first to support. Other formats (utility bills, credit card statements) will come later.
 
-Related terms above: Commerce and Establishment (merchant data), Item (line items), Charged Total (`total_amount`), Reduction (discounts), Document (the receipt itself).
+Related terms above: Commerce and Establishment (merchant data), Purchase Item (line items), Charged Total (`total_amount`), Reduction (discounts), Document (the receipt itself).
 
 ### Merchant Data (Datos del Emisor)
 

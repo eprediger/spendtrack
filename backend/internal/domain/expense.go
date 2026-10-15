@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ type Expense struct {
 	OccurredOffsetMinutes int
 	Money                 Money
 	Description           string
+	Items                 []PurchaseItem
 }
 
 // NewExpense builds a valid Expense or reports every violated field.
@@ -24,7 +26,7 @@ type Expense struct {
 // their presence; amount and currency are pointers because Money owns the
 // presence and content checks of its pair (a Money is never valid with only
 // one side present).
-func NewExpense(occurredAt time.Time, amount *decimal.Decimal, currency *string, description string, now time.Time) (*Expense, *ValidationError) {
+func NewExpense(occurredAt time.Time, amount *decimal.Decimal, currency *string, description string, items []PurchaseItemInput, now time.Time) (*Expense, *ValidationError) {
 	var fe []FieldError
 
 	if occurredAt.After(now) {
@@ -39,6 +41,18 @@ func NewExpense(occurredAt time.Time, amount *decimal.Decimal, currency *string,
 		fe = append(fe, FieldError{Field: "description", Code: "required", Detail: "description is required"})
 	}
 
+	var expenseItems []PurchaseItem
+	for i, input := range items {
+		item, errs := NewPurchaseItem(input.Description, input.Quantity, input.UnitPrice, input.LineTotal)
+		for j := range errs {
+			errs[j].Field = fmt.Sprintf("items[%d].%s", i, errs[j].Field)
+		}
+		fe = append(fe, errs...)
+		if len(errs) == 0 {
+			expenseItems = append(expenseItems, item)
+		}
+	}
+
 	if len(fe) > 0 {
 		return nil, &ValidationError{Fields: fe}
 	}
@@ -50,6 +64,7 @@ func NewExpense(occurredAt time.Time, amount *decimal.Decimal, currency *string,
 		OccurredOffsetMinutes: offsetSeconds / 60,
 		Money:                 money,
 		Description:           description,
+		Items:                 expenseItems,
 	}, nil
 }
 

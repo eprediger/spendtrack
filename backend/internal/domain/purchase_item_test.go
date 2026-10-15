@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewItemValid(t *testing.T) {
-	item, errs := NewItem("  Candies ", dec("5"), dec("150.00"), dec("750.00"))
+func TestNewPurchaseItemValid(t *testing.T) {
+	item, errs := NewPurchaseItem("  Candies ", dec("5"), dec("150.00"), dec("750.00"))
 
 	require.Empty(t, errs)
 	assert.Equal(t, "Candies", item.Description)
@@ -18,19 +18,19 @@ func TestNewItemValid(t *testing.T) {
 	assert.True(t, item.LineTotal.Equal(*dec("750.00")))
 }
 
-func TestNewItemSignedAmounts(t *testing.T) {
-	item, errs := NewItem("RETURNABLE BOTTLE", dec("3"), dec("-3001.00"), dec("-9003.00"))
+func TestNewPurchaseItemSignedAmounts(t *testing.T) {
+	item, errs := NewPurchaseItem("RETURNABLE BOTTLE", dec("3"), dec("-3001.00"), dec("-9003.00"))
 	require.Empty(t, errs)
 	assert.True(t, item.UnitPrice.Equal(*dec("-3001.00")))
 	assert.True(t, item.LineTotal.Equal(*dec("-9003.00")))
 
-	item, errs = NewItem("Free item", dec("1"), dec("0"), dec("0"))
+	item, errs = NewPurchaseItem("Free item", dec("1"), dec("0"), dec("0"))
 	require.Empty(t, errs)
 	assert.True(t, item.UnitPrice.IsZero())
 	assert.True(t, item.LineTotal.IsZero())
 }
 
-func TestNewItemValidation(t *testing.T) {
+func TestNewPurchaseItemValidation(t *testing.T) {
 	tests := []struct {
 		name        string
 		description string
@@ -97,7 +97,7 @@ func TestNewItemValidation(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			item, errs := NewItem(tc.description, tc.quantity, tc.unitPrice, tc.lineTotal)
+			item, errs := NewPurchaseItem(tc.description, tc.quantity, tc.unitPrice, tc.lineTotal)
 			assert.Empty(t, item)
 			require.Len(t, errs, len(tc.want))
 			got := make(map[string]string, len(errs))

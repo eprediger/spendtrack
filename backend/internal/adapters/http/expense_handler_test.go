@@ -29,6 +29,28 @@ func TestParseAmount(t *testing.T) {
 	assert.True(t, amount.Equal(decimal.RequireFromString("45.90")))
 }
 
+func TestParseItems(t *testing.T) {
+	items, errs := parseItems(nil)
+	assert.Empty(t, items)
+	assert.Empty(t, errs)
+
+	items, errs = parseItems([]itemRequest{
+		{Description: text("Candies"), Quantity: text("5"), UnitPrice: text("150.00"), LineTotal: text("750.00")},
+		{Description: text("Water"), Quantity: text("abc"), UnitPrice: text("3400.00"), LineTotal: text("3400.00")},
+	})
+	require.Len(t, items, 2)
+	assert.Nil(t, items[1].Quantity)
+	require.Equal(t, []domain.FieldError{
+		{Field: "items[1].quantity", Code: "invalid", Detail: "must be a decimal number"},
+	}, errs)
+
+	items, errs = parseItems([]itemRequest{{Description: text("Water"), Quantity: text("0.750"), LineTotal: text("2400.00")}})
+	require.Empty(t, errs)
+	require.Len(t, items, 1)
+	assert.Nil(t, items[0].UnitPrice)
+	assert.Equal(t, int32(-3), items[0].Quantity.Exponent())
+}
+
 // TestFormatAmount locks the scale-preserving rendering: input scale must
 // survive, not collapse to "45.9".
 func TestFormatAmount(t *testing.T) {
@@ -36,16 +58,43 @@ func TestFormatAmount(t *testing.T) {
 	assert.Equal(t, "45", formatAmount(decimal.RequireFromString("45")))
 }
 
-func TestWithAmountError(t *testing.T) {
+func TestWithParseErrors(t *testing.T) {
 	fields := []domain.FieldError{
 		{Field: "amount", Code: "required", Detail: "amount is required"},
+		{Field: "items[1].quantity", Code: "required", Detail: "quantity is required"},
 		{Field: "currency", Code: "unsupported_currency", Detail: "currency is not supported"},
 	}
-	invalid := domain.FieldError{Field: "amount", Code: "invalid", Detail: "must be a decimal number"}
+	parseErrors := []domain.FieldError{
+		{Field: "amount", Code: "invalid", Detail: "must be a decimal number"},
+		{Field: "items[1].quantity", Code: "invalid", Detail: "must be a decimal number"},
+	}
 
-	got := withAmountError(fields, &invalid)
-	assert.Equal(t, []domain.FieldError{invalid, fields[1]}, got)
+	got := withParseErrors(fields, parseErrors)
+	assert.Equal(t, []domain.FieldError{parseErrors[0], parseErrors[1], fields[2]}, got)
 	assert.Equal(t, "required", fields[0].Code, "input must not be modified")
+	assert.Equal(t, "required", fields[1].Code, "input must not be modified")
 
-	assert.Equal(t, fields, withAmountError(fields, nil))
+	assert.Equal(t, fields, withParseErrors(fields, nil))
+}
+
+func TestToResponseItems(t *testing.T) {
+	expense := &domain.Expense{}
+	response := toResponse(expense)
+	require.NotNil(t, response.Items)
+	assert.Empty(t, response.Items)
+
+	expense.Items = []domain.PurchaseItem{{
+		Description: "Apples",
+		Quantity:    decimal.RequireFromString("0.750"),
+		UnitPrice:   decimal.RequireFromString("3200.00"),
+		LineTotal:   decimal.RequireFromString("2400.00"),
+	}}
+	response = toResponse(expense)
+	require.Len(t, response.Items, 1)
+	assert.Equal(t, itemResponse{
+		Description: "Apples",
+		Quantity:    "0.750",
+		UnitPrice:   "3200.00",
+		LineTotal:   "2400.00",
+	}, response.Items[0])
 }

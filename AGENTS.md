@@ -163,7 +163,7 @@ Run these commands from the repository root:
 * `make -C backend bdd`: BDD scenarios against Postgres. Docker must run.
 * `make -C backend ci`: lint plus the full test suite. The pre-commit hook runs it. Run it before you say that work is done.
 
-The BDD scenarios share one Postgres database and truncate the `expenses` table before each scenario. Run only one test suite at a time. Do not run parallel agents or two worktrees against the same database. To run in parallel, give each worktree its own database through `DATABASE_URL`.
+The BDD scenarios share one Postgres database and truncate the `expense_items` and `expenses` tables before each scenario. Run only one test suite at a time. Do not run parallel agents or two worktrees against the same database. To run in parallel, give each worktree its own database through `DATABASE_URL`.
 
 ## Quality
 

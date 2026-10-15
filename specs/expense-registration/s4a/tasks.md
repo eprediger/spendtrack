@@ -138,11 +138,11 @@ git commit -m "feat: validate purchase items when building an expense"
   - `type itemResponse struct { Description, Quantity, UnitPrice, LineTotal string }` with the same JSON keys; `expenseResponse` gets `Items []itemResponse` (`items`), never nil.
 - Produces in the repository: `func numericText(d decimal.Decimal) string` (scale-preserving text, replaces the inline `StringFixed` in `Save`).
 
-- [ ] **Step 1: Prepare the scenarios.** Move `@todo` from the Feature line to every Scenario and Scenario Outline of `itemize_expense.feature`, then remove it from the four scenarios of this task: register with items, register without items, review the items, and a new one:
+- [ ] **Step 1: Prepare the scenarios.** Move `@todo` from the Feature line to every Scenario and Scenario Outline of `itemize_expense.feature`, then remove it from the four scenarios of this task: register with purchase items, register without purchase items, review the purchase items, and a new one:
 
 ```gherkin
-  Scenario: Reviewing an expense whose stored item is invalid
-    Given an expense with an item with an empty description is stored in the database
+  Scenario: Reviewing an expense whose stored purchase item is invalid
+    Given an expense with a purchase item with an empty description is stored in the database
     When the Financial Manager reviews the expense
     Then the system indicates an internal error
 ```
@@ -151,9 +151,9 @@ git commit -m "feat: validate purchase items when building an expense"
   - `the Financial Manager registers an expense at "…" for … "…" described as "…" with items:` builds the payload from the table (columns `description`, `quantity`, `unit price`, `line total`, sent as strings).
   - `the expense is recorded` (status 201, keeps the id).
   - `the expense has (\d+) items` and `the expense has no items` (the response `items` must be an array, an empty one for the second).
-  - `an expense with items was registered` (two fixed items, keeps the id).
-  - `the expense shows each item with its description, quantity, unit price and line total` (same items, same order, same text as sent).
-  - `an expense with an item with an empty description is stored in the database` (inserts the expense row, then an `expense_items` row with an empty description, directly through `pool`, and keeps the id).
+  - `an expense with purchase items was registered` (two fixed purchase items, keeps the id).
+  - `the expense shows each purchase item with its description, quantity, unit price and line total` (same items, same order, same text as sent).
+  - `an expense with a purchase item with an empty description is stored in the database` (inserts the expense row, then an `expense_items` row with an empty description, directly through `pool`, and keeps the id).
 
 - [ ] **Step 3: Write the failing handler tests** in `expense_handler_test.go`
   - `TestParseItems`: `nil` input gives no inputs and no errors; `quantity: "abc"` at position 1 gives nil `Quantity` and `{items[1].quantity, invalid, "must be a decimal number"}`; a missing `unit_price` gives a nil pointer and no error; a decimal keeps its scale.
@@ -188,20 +188,20 @@ git add backend
 git commit -m "feat: register and review expense items"
 ```
 
-### Task 4: Item validation through the API
+### Task 4: Purchase item validation through the API
 
 **Files:**
 - Modify: `backend/features/expenses/itemize_expense.feature`, `backend/features/steps_test.go`, `backend/internal/adapters/http/expense_handler_test.go`
 
 **Interfaces:** Consumes Task 3. Adds no production interface.
 
-- [ ] **Step 1: Prepare.** Add this scenario to the feature, tagged `@todo`, then remove `@todo` from it and from the two outlines `A quantity that is not positive is rejected` and `Incomplete item information is rejected`:
+- [ ] **Step 1: Prepare.** Add this scenario to the feature, tagged `@todo`, then remove `@todo` from it and from the two outlines `A purchase item quantity that is not positive is rejected` and `Incomplete purchase item information is rejected`:
 
 ```gherkin
-  Scenario Outline: A non-numeric item amount is rejected
-    When the Financial Manager registers an expense with an item whose "<field>" is "abc"
+  Scenario Outline: A non-numeric purchase item amount is rejected
+    When the Financial Manager registers an expense with a purchase item whose "<field>" is "abc"
     Then the registration is rejected
-    And the system indicates the item "<field>" is invalid
+    And the system indicates the purchase item "<field>" is invalid
 
     Examples:
       | field      |
@@ -210,7 +210,7 @@ git commit -m "feat: register and review expense items"
       | line total |
 ```
 
-- [ ] **Step 2: Add the step bindings:** `registers an expense with an item of quantity (\S+), unit price (\S+) and line total (\S+)`, the same with `an item "([^"]*)" of quantity …`, `registers an expense with an item without "([^"]*)"`, `registers an expense with an item whose "([^"]*)" is "([^"]*)"`, and `the system indicates the item "([^"]*)" is (required|invalid)` (an error on any position whose field ends with the field name, spaces turned into underscores; `required` needs code `required`, `invalid` accepts any code).
+- [ ] **Step 2: Add the step bindings:** `registers an expense with a purchase item of quantity (\S+), unit price (\S+) and line total (\S+)`, the same with `a purchase item "([^"]*)" of quantity …`, `registers an expense with a purchase item without "([^"]*)"`, `registers an expense with a purchase item whose "([^"]*)" is "([^"]*)"`, and `the system indicates the purchase item "([^"]*)" is (required|invalid)` (an error on any position whose field ends with the field name, spaces turned into underscores; `required` needs code `required`, `invalid` accepts any code).
 
 - [ ] **Step 3: Write the failing handler tests**
   - `TestParseItemsNullItem`: JSON `{"items":[null]}` decoded into `createRequest` and parsed gives one `PurchaseItemInput` with an empty description and three nil pointers.

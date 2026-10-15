@@ -24,7 +24,7 @@ var st *state
 func initializeScenario(sc *godog.ScenarioContext) {
 	sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 		st = &state{}
-		_, err := pool.Exec(ctx, "TRUNCATE expenses")
+		_, err := pool.Exec(ctx, "TRUNCATE expense_items, expenses")
 		return ctx, err
 	})
 
@@ -52,6 +52,12 @@ func initializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the system indicates an internal error$`, internalError)
 	sc.Step(`^the expense occurred at "([^"]*)" with amount (\S+) "([^"]*)" and description "([^"]*)"$`, expenseMatches)
 	sc.Step(`^the expense shows occurred at "([^"]*)" with amount (\S+) "([^"]*)" and description "([^"]*)"$`, expenseMatches)
+	sc.Step(`^the Financial Manager registers an expense at "([^"]*)" for (\S+) "([^"]*)" described as "([^"]*)" with items:$`, registerExpenseWithItems)
+	sc.Step(`^the expense has (\d+) items$`, expenseHasItems)
+	sc.Step(`^the expense has no items$`, expenseHasNoItems)
+	sc.Step(`^an expense with purchase items was registered$`, registeredExpenseWithItems)
+	sc.Step(`^the expense shows each purchase item with its description, quantity, unit price and line total$`, expenseShowsPurchaseItems)
+	sc.Step(`^an expense with a purchase item with an empty description is stored in the database$`, storedWithEmptyPurchaseItemDescription)
 	sc.Step(`^the Financial Manager registers an expense without "([^"]*)"$`, registerWithout)
 	sc.Step(`^the Financial Manager registers an expense with:$`, registerWithTable)
 	sc.Step(`^the Financial Manager registers an expense that occurs in the future for (\S+) "([^"]*)" described as "([^"]*)"$`, registerFuture)
@@ -82,6 +88,25 @@ func registerExpense(occurredAt, amount, currency, description string) error {
 	})
 }
 
+func registerExpenseWithItems(occurredAt, amount, currency, description string, table *godog.Table) error {
+	headers := make([]string, len(table.Rows[0].Cells))
+	for i, cell := range table.Rows[0].Cells {
+		headers[i] = strings.ReplaceAll(cell.Value, " ", "_")
+	}
+	items := make([]map[string]string, 0, len(table.Rows)-1)
+	for _, row := range table.Rows[1:] {
+		item := make(map[string]string, len(headers))
+		for i, cell := range row.Cells {
+			item[headers[i]] = cell.Value
+		}
+		items = append(items, item)
+	}
+	return post("/api/v1/expenses", map[string]any{
+		"occurred_at": occurredAt, "amount": amount,
+		"currency": currency, "description": description, "items": items,
+	})
+}
+
 func registeredExpense(occurredAt, amount, currency, description string) error {
 	if err := registerExpense(occurredAt, amount, currency, description); err != nil {
 		return err
@@ -99,6 +124,74 @@ func recordedExpense() error {
 	}
 	st.expenseID = id
 	return nil
+}
+
+func expenseHasItems(expected int) error {
+	items, ok := st.body["items"].([]any)
+	if !ok || len(items) != expected {
+		return fmt.Errorf("expected %d items, got %v", expected, st.body["items"])
+	}
+	return nil
+}
+
+func expenseHasNoItems() error {
+	return expenseHasItems(0)
+}
+
+func registeredExpenseWithItems() error {
+	if err := post("/api/v1/expenses", map[string]any{
+		"occurred_at": "2026-10-05T16:53:34-03:00",
+		"amount":      "14000.00",
+		"currency":    "ARS",
+		"description": "Gas station store",
+		"items": []map[string]string{
+			{"description": "Candies", "quantity": "5", "unit_price": "150.00", "line_total": "750.00"},
+			{"description": "Bottled water", "quantity": "1", "unit_price": "3400.00", "line_total": "3400.00"},
+		},
+	}); err != nil {
+		return err
+	}
+	return recordedExpense()
+}
+
+func expenseShowsPurchaseItems() error {
+	if st.status != http.StatusOK {
+		return fmt.Errorf("expected 200, got %d: %v", st.status, st.body)
+	}
+	items, ok := st.body["items"].([]any)
+	if !ok || len(items) != 2 {
+		return fmt.Errorf("expected two purchase items, got %v", st.body["items"])
+	}
+	expected := []map[string]string{
+		{"description": "Candies", "quantity": "5", "unit_price": "150.00", "line_total": "750.00"},
+		{"description": "Bottled water", "quantity": "1", "unit_price": "3400.00", "line_total": "3400.00"},
+	}
+	for i, item := range items {
+		got, ok := item.(map[string]any)
+		if !ok {
+			return fmt.Errorf("item %d has unexpected shape: %v", i, item)
+		}
+		for field, want := range expected[i] {
+			if got[field] != want {
+				return fmt.Errorf("item %d %s: want %q got %v", i, field, want, got[field])
+			}
+		}
+	}
+	return nil
+}
+
+func storedWithEmptyPurchaseItemDescription() error {
+	err := pool.QueryRow(context.Background(),
+		`INSERT INTO expenses (id, occurred_at, occurred_offset_minutes, amount, currency, description)
+		 VALUES (gen_random_uuid(), now(), 0, 1, 'ARS', 'seeded') RETURNING id::text`).
+		Scan(&st.expenseID)
+	if err != nil {
+		return err
+	}
+	_, err = pool.Exec(context.Background(),
+		`INSERT INTO expense_items (expense_id, position, description, quantity, unit_price, line_total)
+		 VALUES ($1, 0, '', 1, 1, 1)`, st.expenseID)
+	return err
 }
 
 func reviewExpense() error {

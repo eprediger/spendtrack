@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -23,18 +24,34 @@ func NewExpenseHandler(svc *application.ExpenseService) *ExpenseHandler {
 }
 
 type createRequest struct {
-	OccurredAt  *string `json:"occurred_at"`
-	Amount      *string `json:"amount"`
-	Currency    *string `json:"currency"`
+	OccurredAt  *string       `json:"occurred_at"`
+	Amount      *string       `json:"amount"`
+	Currency    *string       `json:"currency"`
+	Description *string       `json:"description"`
+	Items       []itemRequest `json:"items"`
+}
+
+type itemRequest struct {
 	Description *string `json:"description"`
+	Quantity    *string `json:"quantity"`
+	UnitPrice   *string `json:"unit_price"`
+	LineTotal   *string `json:"line_total"`
 }
 
 type expenseResponse struct {
-	ID          string `json:"id"`
-	OccurredAt  string `json:"occurred_at"`
-	Amount      string `json:"amount"`
-	Currency    string `json:"currency"`
+	ID          string         `json:"id"`
+	OccurredAt  string         `json:"occurred_at"`
+	Amount      string         `json:"amount"`
+	Currency    string         `json:"currency"`
+	Description string         `json:"description"`
+	Items       []itemResponse `json:"items"`
+}
+
+type itemResponse struct {
 	Description string `json:"description"`
+	Quantity    string `json:"quantity"`
+	UnitPrice   string `json:"unit_price"`
+	LineTotal   string `json:"line_total"`
 }
 
 // formatAmount keeps the scale: "45.90" must not become "45.9".
@@ -53,30 +70,76 @@ func parseAmount(s *string) (*decimal.Decimal, *domain.FieldError) {
 	return &d, nil
 }
 
-// withAmountError swaps the domain's amount error, which only sees a missing
-// amount, for the parse error, so every field error is still reported together.
-func withAmountError(fields []domain.FieldError, amountErr *domain.FieldError) []domain.FieldError {
-	if amountErr == nil {
+func parseItems(reqs []itemRequest) ([]domain.PurchaseItemInput, []domain.FieldError) {
+	items := make([]domain.PurchaseItemInput, len(reqs))
+	var errs []domain.FieldError
+	for i, req := range reqs {
+		description := ""
+		if req.Description != nil {
+			description = *req.Description
+		}
+		items[i].Description = description
+		for _, field := range []struct {
+			name  string
+			value *string
+			dst   **decimal.Decimal
+		}{
+			{name: "quantity", value: req.Quantity, dst: &items[i].Quantity},
+			{name: "unit_price", value: req.UnitPrice, dst: &items[i].UnitPrice},
+			{name: "line_total", value: req.LineTotal, dst: &items[i].LineTotal},
+		} {
+			value, ferr := parseAmount(field.value)
+			if ferr != nil {
+				ferr.Field = fmt.Sprintf("items[%d].%s", i, field.name)
+				errs = append(errs, *ferr)
+			}
+			*field.dst = value
+		}
+	}
+	return items, errs
+}
+
+// withParseErrors replaces required errors for unparseable values and adds any
+// adapter errors that do not have a matching domain validation error.
+func withParseErrors(fields, parseErrs []domain.FieldError) []domain.FieldError {
+	if len(parseErrs) == 0 {
 		return fields
 	}
-	out := make([]domain.FieldError, len(fields))
-	for i, f := range fields {
-		if f.Field == "amount" {
-			f = *amountErr
+	out := append([]domain.FieldError(nil), fields...)
+	for _, parseErr := range parseErrs {
+		replaced := false
+		for i := range out {
+			if out[i].Field == parseErr.Field {
+				out[i] = parseErr
+				replaced = true
+				break
+			}
 		}
-		out[i] = f
+		if !replaced {
+			out = append(out, parseErr)
+		}
 	}
 	return out
 }
 
 func toResponse(e *domain.Expense) expenseResponse {
-	return expenseResponse{
+	response := expenseResponse{
 		ID:          e.ID.String(),
 		OccurredAt:  e.LocalTime().Format(time.RFC3339),
 		Amount:      formatAmount(e.Money.Amount),
 		Currency:    string(e.Money.Currency),
 		Description: e.Description,
+		Items:       make([]itemResponse, 0, len(e.Items)),
 	}
+	for _, item := range e.Items {
+		response.Items = append(response.Items, itemResponse{
+			Description: item.Description,
+			Quantity:    formatAmount(item.Quantity),
+			UnitPrice:   formatAmount(item.UnitPrice),
+			LineTotal:   formatAmount(item.LineTotal),
+		})
+	}
+	return response
 }
 
 func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -106,15 +169,21 @@ func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	amount, amountErr := parseAmount(req.Amount)
+	items, itemParseErrs := parseItems(req.Items)
 	e, err := h.svc.Register(r.Context(), application.RegisterInput{
 		OccurredAt:  &occurredAt,
 		Amount:      amount,
 		Currency:    req.Currency,
 		Description: req.Description,
+		Items:       items,
 	})
 	var verr *domain.ValidationError
 	if errors.As(err, &verr) {
-		writeProblem(w, http.StatusUnprocessableEntity, "validation-failed", "Validation failed", withAmountError(verr.Fields, amountErr))
+		parseErrs := itemParseErrs
+		if amountErr != nil {
+			parseErrs = append(parseErrs, *amountErr)
+		}
+		writeProblem(w, http.StatusUnprocessableEntity, "validation-failed", "Validation failed", withParseErrors(verr.Fields, parseErrs))
 		return
 	}
 	if err != nil {

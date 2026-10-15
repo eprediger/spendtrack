@@ -22,14 +22,34 @@ func NewExpenseRepository(pool *pgxpool.Pool) *ExpenseRepository {
 	return &ExpenseRepository{pool: pool}
 }
 
+func numericText(d decimal.Decimal) string {
+	return d.StringFixed(-d.Exponent())
+}
+
 func (r *ExpenseRepository) Save(ctx context.Context, e *domain.Expense) error {
-	// Send text, not the Decimal: its driver Value() trims trailing zeros ("45.90" would be stored as "45.9").
-	amount := e.Money.Amount.StringFixed(-e.Money.Amount.Exponent())
-	_, err := r.pool.Exec(ctx,
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	_, err = tx.Exec(ctx,
 		`INSERT INTO expenses (id, occurred_at, occurred_offset_minutes, amount, currency, description)
 		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		e.ID, e.OccurredAt, e.OccurredOffsetMinutes, amount, string(e.Money.Currency), e.Description)
-	return err
+		e.ID, e.OccurredAt, e.OccurredOffsetMinutes, numericText(e.Money.Amount), string(e.Money.Currency), e.Description)
+	if err != nil {
+		return err
+	}
+	for i, item := range e.Items {
+		_, err := tx.Exec(ctx,
+			`INSERT INTO expense_items (expense_id, position, description, quantity, unit_price, line_total)
+			 VALUES ($1, $2, $3, $4, $5, $6)`,
+			e.ID, i, item.Description, numericText(item.Quantity), numericText(item.UnitPrice), numericText(item.LineTotal))
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *ExpenseRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Expense, error) {
@@ -54,5 +74,36 @@ func (r *ExpenseRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain
 		return nil, fmt.Errorf("stored expense %s has invalid money: %v", id, errs)
 	}
 	e.Money = money
+
+	rows, err := r.pool.Query(ctx,
+		`SELECT description, quantity, unit_price, line_total
+		 FROM expense_items WHERE expense_id = $1 ORDER BY position`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			description string
+			quantity    decimal.Decimal
+			unitPrice   decimal.Decimal
+			lineTotal   decimal.Decimal
+		)
+		if err := rows.Scan(&description, &quantity, &unitPrice, &lineTotal); err != nil {
+			return nil, err
+		}
+		item, errs := domain.NewPurchaseItem(description, &quantity, &unitPrice, &lineTotal)
+		if len(errs) > 0 {
+			for i := range errs {
+				errs[i].Field = fmt.Sprintf("items[%d].%s", len(e.Items), errs[i].Field)
+			}
+			return nil, fmt.Errorf("stored expense %s has invalid purchase item: %v", id, errs)
+		}
+		e.Items = append(e.Items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return &e, nil
 }

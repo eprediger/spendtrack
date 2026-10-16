@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -145,7 +146,13 @@ func toResponse(e *domain.Expense) expenseResponse {
 
 func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req createRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&req); err != nil {
+		writeProblem(w, http.StatusBadRequest, "malformed-json", "Malformed JSON", nil)
+		return
+	}
+	var trailing json.RawMessage
+	if err := decoder.Decode(&trailing); err != io.EOF {
 		writeProblem(w, http.StatusBadRequest, "malformed-json", "Malformed JSON", nil)
 		return
 	}

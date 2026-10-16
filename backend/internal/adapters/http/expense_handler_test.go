@@ -152,3 +152,12 @@ func TestCreateItemsNotAnArray(t *testing.T) {
 	assert.Equal(t, "Malformed JSON", got.Title)
 	assert.Equal(t, http.StatusBadRequest, got.Status)
 }
+
+func TestCreateRejectsTrailingJSON(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/expenses", strings.NewReader(`{} {}`))
+	recorder := httptest.NewRecorder()
+
+	NewExpenseHandler(nil).Create(recorder, req)
+
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
+}

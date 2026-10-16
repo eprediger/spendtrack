@@ -1,18 +1,24 @@
 package httpapi
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"spendtrack/internal/application"
 	"spendtrack/internal/domain"
 )
 
@@ -160,4 +166,35 @@ func TestCreateRejectsTrailingJSON(t *testing.T) {
 	NewExpenseHandler(nil).Create(recorder, req)
 
 	require.Equal(t, http.StatusBadRequest, recorder.Code)
+}
+
+type failingExpenseRepository struct {
+	err error
+}
+
+func (r failingExpenseRepository) Save(context.Context, *domain.Expense) error {
+	return r.err
+}
+
+func (r failingExpenseRepository) FindByID(context.Context, uuid.UUID) (*domain.Expense, error) {
+	return nil, r.err
+}
+
+func TestCreateLogsRegistrationFailureWithoutExposingIt(t *testing.T) {
+	persistenceErr := errors.New("database unavailable")
+	handler := NewExpenseHandler(application.NewExpenseService(failingExpenseRepository{err: persistenceErr}))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/expenses", strings.NewReader(
+		`{"occurred_at":"2020-01-01T00:00:00Z","amount":"12.00","currency":"USD","description":"Lunch"}`,
+	))
+	recorder := httptest.NewRecorder()
+	var logs bytes.Buffer
+	oldLogOutput := log.Writer()
+	log.SetOutput(&logs)
+	defer log.SetOutput(oldLogOutput)
+
+	handler.Create(recorder, req)
+
+	require.Equal(t, http.StatusInternalServerError, recorder.Code)
+	assert.Contains(t, logs.String(), persistenceErr.Error())
+	assert.NotContains(t, recorder.Body.String(), persistenceErr.Error())
 }

@@ -195,6 +195,7 @@ func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
+		log.Printf("register expense: %v", err)
 		writeProblem(w, http.StatusInternalServerError, "internal", "Internal error", nil)
 		return
 	}

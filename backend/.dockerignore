@@ -16,7 +16,6 @@ Dockerfile
 docker-compose.yml
 .dockerignore
 Makefile
-setup-hooks.sh
 setup-instructions.md
 
 .devin/

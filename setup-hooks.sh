@@ -115,13 +115,13 @@ for hook_file in "$HOOKS_SOURCE_DIR"/*; do
             print_success "✓ Updated symlink"
         fi
     elif [ -f "$target_path" ]; then
-        print_warning "Target is a regular file, backing up existing hook to: $backup_path"
         backup_path="${target_path}.backup.$(date +%Y%m%d_%H%M%S)"
+        print_warning "Target is a regular file, backing up existing hook to: $backup_path"
         if ! mv "$target_path" "$backup_path"; then
             print_error "Failed to backup existing hook: $target_path"
             continue
         fi
-        if ln -s "../../$HOOKS_SOURCE_DIR/$hook_name" "$target_path"; then
+        if ! ln -s "../../$HOOKS_SOURCE_DIR/$hook_name" "$target_path"; then
             print_error "Failed to create symlink: $target_path"
             continue
         fi

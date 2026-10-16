@@ -40,4 +40,4 @@ See `.env.example`: `PORT` (default 8000), `DATABASE_URL` (required by the app; 
 
 ## Git hooks
 
-Run `backend/setup-hooks.sh` from the repository root — it links `.hooks/` into `.git/hooks/`. `pre-commit` runs `make ci`.
+Run `./setup-hooks.sh` from the repository root — it links `.hooks/` into `.git/hooks/`. `pre-commit` runs `make ci`.

@@ -8,12 +8,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/cucumber/godog"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
+
+	"spendtrack/internal/config"
 )
 
 var (
@@ -22,15 +25,16 @@ var (
 )
 
 func TestFeatures(t *testing.T) {
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		dbURL = "postgres://postgres:postgres@localhost:5432/spendtrack?sslmode=disable"
-	}
+	cfg, err := config.Load()
+	require.NoError(t, err)
 
-	var err error
+	dbURL := cfg.DatabaseURL
 	pool, err = pgxpool.New(context.Background(), dbURL)
 	require.NoError(t, err)
 	require.NoError(t, pool.Ping(context.Background()))
+	var database string
+	require.NoError(t, pool.QueryRow(context.Background(), "SELECT current_database()").Scan(&database))
+	require.True(t, strings.HasSuffix(database, "_test"), "BDD tests require a dedicated database ending in _test; got %q", database)
 	defer pool.Close()
 
 	var stop func()

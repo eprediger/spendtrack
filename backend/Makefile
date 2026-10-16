@@ -1,6 +1,7 @@
-.PHONY: help build run up down logs db lint lint-fix test bdd coverage ci clean
+.PHONY: help build run up down logs db test-db lint lint-fix test bdd coverage ci clean
 
 DATABASE_URL ?= postgres://postgres:postgres@localhost:5432/spendtrack?sslmode=disable
+TEST_DATABASE_URL ?= postgres://postgres:postgres@localhost:5432/spendtrack_test?sslmode=disable
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -29,6 +30,9 @@ logs: ## Follow container logs
 db: ## Start postgres only (for local tests)
 	docker compose up -d --wait postgres
 
+test-db: db ## Ensure the isolated test database exists
+	@docker compose exec -T postgres psql -U postgres -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = 'spendtrack_test'" | grep -q 1 || docker compose exec -T postgres createdb -U postgres spendtrack_test
+
 lint: ## Run golangci-lint
 	golangci-lint run ./...
 
@@ -38,15 +42,15 @@ lint-fix: ## Run golangci-lint with autofix
 test: ## Run unit tests (no database needed)
 	go test ./internal/... ./cmd/...
 
-bdd: db ## Run BDD suite against real Postgres
-	DATABASE_URL="$(DATABASE_URL)" go test ./features/...
+bdd: test-db ## Run BDD suite against the isolated test database
+	DATABASE_URL="$(TEST_DATABASE_URL)" go test ./features/...
 
-coverage: db ## Run all tests with coverage report
-	DATABASE_URL="$(DATABASE_URL)" go test -coverprofile=coverage.out -coverpkg=./internal/...,./cmd/... ./...
+coverage: test-db ## Run all tests with coverage report
+	DATABASE_URL="$(TEST_DATABASE_URL)" go test -coverprofile=coverage.out -coverpkg=./internal/...,./cmd/... ./...
 	go tool cover -func=coverage.out | tail -1
 
-ci: lint db ## Lint + full test suite (used by hooks/CI)
-	DATABASE_URL="$(DATABASE_URL)" go test -coverprofile=coverage.out -coverpkg=./internal/...,./cmd/... ./...
+ci: lint test-db ## Lint + full test suite (used by hooks/CI)
+	DATABASE_URL="$(TEST_DATABASE_URL)" go test -coverprofile=coverage.out -coverpkg=./internal/...,./cmd/... ./...
 	go tool cover -func=coverage.out | tail -1
 
 clean: ## Stop the stack and delete volumes

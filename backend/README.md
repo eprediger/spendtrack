@@ -59,6 +59,8 @@ testability, flexibility, maintainability and framework agnosticism
 - Test user scenarios end-to-end against real Postgres
 - Written in Gherkin syntax
 - Run with: `make bdd`
+- Use the isolated `spendtrack_test` database; `spendtrack` remains for manual app use
+- Direct `go test ./features/...` also defaults to `spendtrack_test` (create it first with `make test-db`)
 
 ### 3. Coverage Reporting
 - Run with: `make coverage`

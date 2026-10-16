@@ -7,21 +7,15 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/caarlos0/env/v11"
-
 	httpapi "spendtrack/internal/adapters/http"
 	"spendtrack/internal/adapters/postgres"
 	"spendtrack/internal/application"
+	"spendtrack/internal/config"
 )
 
-type config struct {
-	Port        int    `env:"PORT" envDefault:"8000"`
-	DatabaseURL string `env:"DATABASE_URL,required"`
-}
-
 func main() {
-	var cfg config
-	if err := env.Parse(&cfg); err != nil {
+	cfg, err := config.Load()
+	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
 

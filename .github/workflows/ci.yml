@@ -16,13 +16,13 @@ jobs:
       run:
         working-directory: backend
     env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/spendtrack?sslmode=disable
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/spendtrack_test?sslmode=disable
 
     services:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: spendtrack
+          POSTGRES_DB: spendtrack_test
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports:

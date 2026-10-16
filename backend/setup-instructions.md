@@ -28,6 +28,12 @@ make lint     # golangci-lint
 make ci       # lint + full suite (what pre-commit runs)
 ```
 
+The `bdd`, `coverage`, and `ci` targets use a separate `spendtrack_test` database.
+They create it on the local PostgreSQL server if it does not exist. The app keeps using
+`spendtrack`, so test cleanup does not erase manual development data. Direct
+`go test ./features/...` also defaults to `spendtrack_test`; run `make test-db`
+first to create it.
+
 ## Configuration
 
 See `.env.example`: `PORT` (default 8000), `DATABASE_URL` (required by the app; compose sets it automatically).

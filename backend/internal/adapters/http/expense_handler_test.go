@@ -2,10 +2,12 @@ package httpapi
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -79,6 +81,26 @@ func TestWithParseErrors(t *testing.T) {
 	assert.Equal(t, "required", fields[1].Code, "input must not be modified")
 
 	assert.Equal(t, fields, withParseErrors(fields, nil))
+}
+
+func TestWithParseErrorsHandlesManyInvalidItemsQuickly(t *testing.T) {
+	const count = 20_000
+	fields := make([]domain.FieldError, count)
+	parseErrors := make([]domain.FieldError, count)
+	for i := range fields {
+		field := fmt.Sprintf("items[%d].quantity", i)
+		fields[i] = domain.FieldError{Field: field, Code: "required", Detail: "quantity is required"}
+		parseErrors[i] = domain.FieldError{Field: field, Code: "invalid", Detail: "must be a decimal number"}
+	}
+
+	start := time.Now()
+	got := withParseErrors(fields, parseErrors)
+	elapsed := time.Since(start)
+
+	require.Len(t, got, count)
+	assert.Equal(t, parseErrors[0], got[0])
+	assert.Equal(t, parseErrors[count-1], got[count-1])
+	assert.Less(t, elapsed, 100*time.Millisecond, "error merging should scale to large item lists")
 }
 
 func TestToResponseItems(t *testing.T) {

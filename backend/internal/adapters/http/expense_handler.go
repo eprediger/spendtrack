@@ -106,18 +106,19 @@ func withParseErrors(fields, parseErrs []domain.FieldError) []domain.FieldError 
 		return fields
 	}
 	out := append([]domain.FieldError(nil), fields...)
+	fieldIndexes := make(map[string]int, len(out)+len(parseErrs))
+	for i, field := range out {
+		if _, exists := fieldIndexes[field.Field]; !exists {
+			fieldIndexes[field.Field] = i
+		}
+	}
 	for _, parseErr := range parseErrs {
-		replaced := false
-		for i := range out {
-			if out[i].Field == parseErr.Field {
-				out[i] = parseErr
-				replaced = true
-				break
-			}
+		if i, exists := fieldIndexes[parseErr.Field]; exists {
+			out[i] = parseErr
+			continue
 		}
-		if !replaced {
-			out = append(out, parseErr)
-		}
+		fieldIndexes[parseErr.Field] = len(out)
+		out = append(out, parseErr)
 	}
 	return out
 }

@@ -72,3 +72,8 @@ Feature: Register a basic expense
     Given an expense with the unsupported currency "EUR" is stored in the database
     When the Financial Manager reviews the expense
     Then the system indicates an internal error
+
+  Scenario: Reviewing an expense whose stored description is empty
+    Given an expense with an empty description is stored in the database
+    When the Financial Manager reviews the expense
+    Then the system indicates an internal error

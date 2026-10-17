@@ -50,6 +50,7 @@ func initializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the system indicates the expense was not found$`, notFound)
 	sc.Step(`^the system indicates the id is invalid$`, invalidID)
 	sc.Step(`^an expense with the unsupported currency "([^"]*)" is stored in the database$`, storedWithCurrency)
+	sc.Step(`^an expense with an empty description is stored in the database$`, storedWithEmptyDescription)
 	sc.Step(`^the system indicates an internal error$`, internalError)
 	sc.Step(`^the expense occurred at "([^"]*)" with amount (\S+) "([^"]*)" and description "([^"]*)"$`, expenseMatches)
 	sc.Step(`^the expense shows occurred at "([^"]*)" with amount (\S+) "([^"]*)" and description "([^"]*)"$`, expenseMatches)
@@ -340,6 +341,13 @@ func storedWithCurrency(currency string) error {
 	return pool.QueryRow(context.Background(),
 		`INSERT INTO expenses (id, occurred_at, occurred_offset_minutes, amount, currency, description)
 		 VALUES (gen_random_uuid(), now(), 0, 10, $1, 'seeded') RETURNING id::text`, currency).
+		Scan(&st.expenseID)
+}
+
+func storedWithEmptyDescription() error {
+	return pool.QueryRow(context.Background(),
+		`INSERT INTO expenses (id, occurred_at, occurred_offset_minutes, amount, currency, description)
+		 VALUES (gen_random_uuid(), now(), 0, 10, 'ARS', '') RETURNING id::text`).
 		Scan(&st.expenseID)
 }
 

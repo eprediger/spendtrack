@@ -2,31 +2,30 @@ package postgres
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
+	"spendtrack/internal/application"
 	"spendtrack/internal/domain"
 )
 
-// ExpenseRepository is the Postgres adapter for application.ExpenseRepository.
-type ExpenseRepository struct {
+type expenseRepository struct {
 	pool *pgxpool.Pool
 }
 
-func NewExpenseRepository(pool *pgxpool.Pool) *ExpenseRepository {
-	return &ExpenseRepository{pool: pool}
+func NewExpenseRepository(pool *pgxpool.Pool) application.ExpenseRepository {
+	return &expenseRepository{pool: pool}
 }
 
 func numericText(d decimal.Decimal) string {
 	return d.StringFixed(-d.Exponent())
 }
 
-func (r *ExpenseRepository) Save(ctx context.Context, e *domain.Expense) error {
+func (r *expenseRepository) Save(ctx context.Context, e *domain.Expense) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -52,58 +51,69 @@ func (r *ExpenseRepository) Save(ctx context.Context, e *domain.Expense) error {
 	return tx.Commit(ctx)
 }
 
-func (r *ExpenseRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Expense, error) {
+func (r *expenseRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Expense, error) {
 	var (
-		e        domain.Expense
-		amount   decimal.Decimal
-		currency string
+		e               domain.Expense
+		amount          decimal.Decimal
+		currency        string
+		hasExpense      bool
+		itemPosition    *int32
+		itemDescription *string
+		quantity        *decimal.Decimal
+		unitPrice       *decimal.Decimal
+		lineTotal       *decimal.Decimal
 	)
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, occurred_at, occurred_offset_minutes, amount, currency, description
-		 FROM expenses WHERE id = $1`, id).
-		Scan(&e.ID, &e.OccurredAt, &e.OccurredOffsetMinutes, &amount, &currency, &e.Description)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, domain.ErrNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-	// Same check as new input: a row written outside the API (a seed, a script) must not be served.
-	money, errs := domain.NewMoney(&amount, &currency)
-	if len(errs) > 0 {
-		return nil, fmt.Errorf("stored expense %s has invalid money: %v", id, errs)
-	}
-	e.Money = money
-
+	var items []domain.PurchaseItemInput
 	rows, err := r.pool.Query(ctx,
-		`SELECT description, quantity, unit_price, line_total
-		 FROM expense_items WHERE expense_id = $1 ORDER BY position`, id)
+		`SELECT e.id, e.occurred_at, e.occurred_offset_minutes, e.amount, e.currency, e.description,
+		        i.position, i.description, i.quantity, i.unit_price, i.line_total
+		 FROM expenses e
+		 LEFT JOIN expense_items i ON i.expense_id = e.id
+		 WHERE e.id = $1
+		 ORDER BY i.position`, id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		var (
-			description string
-			quantity    decimal.Decimal
-			unitPrice   decimal.Decimal
-			lineTotal   decimal.Decimal
-		)
-		if err := rows.Scan(&description, &quantity, &unitPrice, &lineTotal); err != nil {
+		if err := rows.Scan(
+			&e.ID, &e.OccurredAt, &e.OccurredOffsetMinutes, &amount, &currency, &e.Description,
+			&itemPosition, &itemDescription, &quantity, &unitPrice, &lineTotal,
+		); err != nil {
 			return nil, err
 		}
-		item, errs := domain.NewPurchaseItem(description, &quantity, &unitPrice, &lineTotal)
-		if len(errs) > 0 {
-			for i := range errs {
-				errs[i].Field = fmt.Sprintf("items[%d].%s", len(e.Items), errs[i].Field)
-			}
-			return nil, fmt.Errorf("stored expense %s has invalid purchase item: %v", id, errs)
+
+		hasExpense = true
+
+		if itemPosition == nil {
+			continue
 		}
-		e.Items = append(e.Items, item)
+		if itemDescription == nil || quantity == nil || unitPrice == nil || lineTotal == nil {
+			return nil, fmt.Errorf("stored expense %s has incomplete purchase item", id)
+		}
+
+		items = append(items, domain.PurchaseItemInput{
+			Description: *itemDescription,
+			Quantity:    quantity,
+			UnitPrice:   unitPrice,
+			LineTotal:   lineTotal,
+		})
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	return &e, nil
+	if !hasExpense {
+		return nil, domain.ErrNotFound
+	}
+	// Restore the registration offset stored separately from timestamptz before domain validation.
+	occurredAt := e.OccurredAt.In(time.FixedZone("", e.OccurredOffsetMinutes*60))
+	validated, validationErr := domain.NewExpense(
+		occurredAt, &amount, &currency, e.Description, items, time.Now(),
+	)
+	if validationErr != nil {
+		return nil, fmt.Errorf("stored expense %s is invalid: %v", id, validationErr)
+	}
+	validated.ID = e.ID // Keep the persisted identity; NewExpense assigns IDs for new records.
+	return validated, nil
 }

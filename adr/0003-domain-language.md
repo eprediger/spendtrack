@@ -8,10 +8,10 @@ Accepted
 
 * Domain-Driven Design says the ubiquitous language should be the language of the domain experts, and the same words should appear in conversation, documents, tests and code.
 * The product is built in Argentina, by an Argentine developer, for an Argentine public for now. Many financial terms are clearer in Spanish.
-* Some English terms do not map one to one to Spanish. Example: "Reduction" covers *descuento* (applied by the store), *reintegro* (paid back by the bank) and *ahorro* (the savings line on a receipt).
+* Some English terms do not map one to one to Spanish. Example: "Reduction" covers *descuento* (applied by the store) and *reintegro* (paid back by the bank). An informational *ahorro* line on a receipt is not a separate reduction unless it represents a distinct amount applied to the charged total.
 * [`adr/0001-backend-language.md`](0001-backend-language.md) says the project is also a portfolio piece, so an English-speaking audience matters.
 * Many fiscal terms have an English equivalent (IVA is VAT, alícuota is rate, comprobante is receipt or invoice). A few are specific to the Argentine tax system and have no faithful equivalent: CAE and the receipt types (Factura A, B, C). CUIT is the Argentine kind of a concept that exists in every country, the Tax ID (NIT in Colombia, RUT in Chile, and so on).
-* The change is cheapest now: only slice S1 is implemented.
+* The model is still early, so clarifying these terms now costs less than changing them after more slices use them.
 * The plain-language rule in [`AGENTS.md`](../AGENTS.md) (STE100) exists for English only.
 
 ## Decision
@@ -35,6 +35,6 @@ Spanish is an auxiliary language:
 ## Consequences
 
 * New glossary terms need an **En español** line. This is written in [`AGENTS.md`](../AGENTS.md).
-* An English term that hides distinct Spanish concepts is a signal to revisit the concept itself. Example: "Reduction" may split into discount and refund (open decision in S4b).
+* "Reduction" names the concrete amount applied to an expense or item, whether it is a store discount at purchase or a later refund. Spanish uses *descuento* for the former and *reintegro* for the latter. The concepts differ in how and when the amount is applied, not in what the amount represents. See the S4b agreements in [Expense Registration decisions](../product/epics/financial-management/features/expense-registration/decisions.md).
 * UI language is not part of this decision. A Spanish interface does not need Spanish domain code.
 * Revisit if localisation becomes a feature, if the audience of the repository changes, or if the English terms cause repeated confusion with domain experts. The cost of the change grows with each implemented slice.

@@ -215,11 +215,11 @@ The amount the store charged for an expense, after the store's own discounts. It
 
 **Status:** provisional
 
-A decrease of the cost of an expense, applied by an actor (the store, a bank, or another). It applies to the whole expense or to one item. A reduction from another actor is expected until the Financial Manager confirms it as received.
+A concrete amount that decreases the cost of an expense, applied by an accountable party to the whole expense or to one item. A store discount is applied at purchase; a refund from another actor is expected until the Financial Manager confirms it as received.
 
 A reduction is not ordinary income.
 
-**En español:** no tiene una sola palabra en español, y "reducción" no se usa así en la vida diaria. Es el monto que se aplica a un gasto, no la regla de la promoción (el porcentaje y el tope pertenecen a la *promoción*). Según cómo llega se dice distinto: *descuento* (se resta en la caja y figura en el ticket, por ejemplo "DESCUENTOS: -1700") o *reintegro* (el dinero que se devuelve después, con tope). El ticket también tiene una línea de *ahorro*. Ojo: "descuento" también se usa para el porcentaje de una promoción. Redacción provisional, a confirmar. Puede que haya que separar estos conceptos (ver decisiones abiertas de S4b).
+**En español:** no tiene una sola palabra. Es el monto concreto, no la regla de la *promoción*. Se dice *descuento* cuando se resta en la caja y figura en el ticket (por ejemplo, "DESCUENTOS: -1700") y *reintegro* cuando se devuelve después. Una línea informativa de *ahorro* no es otra reducción si repite un descuento aplicado o si ya está incluida en los precios. Redacción provisional, a confirmar.
 
 ## Effective Cost
 
@@ -351,7 +351,7 @@ The payment lines (payment method, amount paid, change due) are not on every rec
 
 On the [supermarket receipt](examples/supermarket-receipt.md), "DESCUENTOS" is the sum of the store's own promotions, applied before the payment processor handles the transaction. The label is how that store shows the sum. A promotion that depends on the payment (for example the [bank promotion](examples/bank-promotion-supermarket.md) for paying with a credit card through a QR) is not in that sum.
 
-Whether informational savings printed in this block (for example the loyalty club savings line of the [supermarket receipt](examples/supermarket-receipt.md), already inside prices) are recorded is an open decision (see S4b in the Expense Registration decisions).
+For S4b, record item-specific discounts already applied to prices and reflected in the charged total. Do not record a summary line that repeats an applied discount or informational savings already embedded in item prices. On the [supermarket receipt](examples/supermarket-receipt.md), "AHORRO OFERTAS" repeats the 1,700 item discount; "AHORRO CLUBDIA" is not itemized or subtracted from the total, so it is not recorded.
 
 ### Tax Breakdown (Desglose de Impuestos)
 

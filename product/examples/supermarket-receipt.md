@@ -72,5 +72,5 @@ Notes:
 ## Illustrates
 
 * S4a: items, including a negative item. S4b: a discount on one item. S4c and S4d: effective cost and an expected bank reduction.
-* An open decision: the loyalty club savings line (recorded or ignored).
+* S4b: the loyalty club savings line is not recorded because it is not allocated to an item or subtracted from the charged total.
 * Price Analysis: barcodes under most items, and descriptions that are cut off.

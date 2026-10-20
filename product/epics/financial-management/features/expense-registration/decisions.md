@@ -159,7 +159,7 @@ All purchase items of an expense are in the currency of the expense. A receipt w
 
 #### Purchase Items Are Not Checked Against the Amount in S4a
 
-S4a does not check that the purchase items add up to the amount of the expense. The product owner prefers that they add up exactly. That check needs the store discounts of S4b, so it is an open decision there.
+S4a does not check that the purchase items add up to the amount of the expense. The product owner prefers that they add up exactly. S4b now requires the complete item line totals minus recorded item discounts to equal the charged total.
 
 ### Open Decisions
 
@@ -173,18 +173,39 @@ S4a does not check that the purchase items add up to the amount of the expense. 
 
 ### Agreements
 
+#### S4b Records Applied Receipt Discounts, Not Promotion Rules
+
+S4b records discount amounts already applied to prices and shown on the receipt. It records the concrete amount, not the promotion rule that produced it. Detecting promotions and validating later refunds belong to future features. A receipt discount associated with one purchase item is recorded against that item. One item can have more than one recorded discount.
+
+Record all item discounts for an expense as one complete set. A later submission replaces the prior set and is validated as a whole; a rejected replacement leaves the prior set unchanged.
+
+#### S4b Starts with Item-Specific Discounts
+
+The first S4b slice records only discounts that can be associated with a purchase item. Discounts applied to the whole expense are deferred to a later slice, even if they appear on a receipt.
+
+#### Duplicate or Embedded Savings Are Not Recorded as Discounts
+
+Record a discount only when it is shown as a separate applied amount and is reflected in the charged total. Do not record a savings summary again when it repeats an applied discount. Do not record loyalty savings that are embedded in item prices and do not reduce the charged total. In the [supermarket receipt](../../../../examples/supermarket-receipt.md), "AHORRO OFERTAS" repeats the 1,700.00 item discount and "AHORRO CLUBDIA" is not allocated to items or subtracted from the total.
+
+#### Itemized Receipts Must Reconcile Exactly
+
+For an itemized expense in S4b, the sum of purchase item line totals minus the sum of recorded item-specific discounts must equal the charged total. Record an expense's item-specific discounts together as one complete set and reject the set if the resulting values do not match. This avoids an invalid intermediate state when one item has multiple discounts.
+
+The cumulative discounts on one item must not exceed its positive line total. Items with a zero or negative line total cannot have discounts.
+
 #### Reductions Are One Concept, Attributed to an Actor
 
-Store discounts and reductions from a bank or another actor are one concept: a reduction. Each reduction names the actor that applied it. A reduction applies to the whole expense or to one item.
+The reduction is the concrete amount applied to an expense or item, whether it is a store discount on a receipt or a refund from a bank. A promotion is the commercial rule that may produce a reduction. The Spanish term depends on how the amount is applied: a store discount is a *descuento*; a later bank payment is a *reintegro*.
+
+The actor is the real party accountable for applying or paying the amount, not a category such as "store" or "bank". For the supermarket receipt, the actor for the 1,700.00 item discount is the merchant, DIA Argentina S.A. For the Santander promotion, the actor for a later refund is Banco Santander. S4b records the item discount before merchant identification and defers linking its actor until the expense's merchant is identified in S4e.
 
 This agreement also applies to S4d and S4f.
 
 ### Open Decisions
 
-* Whether items and store discounts must add up to the charged total, and what happens when they do not. The product owner prefers that they add up exactly. The receipt in the [supermarket example](../../../../examples/supermarket-receipt.md) does: 61,390.00 of items minus 1,700.00 of discounts is 59,690.00.
-* Whether informational savings printed on a receipt (for example the loyalty club savings line of the [supermarket receipt](../../../../examples/supermarket-receipt.md), already inside prices) are recorded or ignored.
-* Whether a store sale price cut is the same concept as a program promotion.
-* Whether "Reduction" stays one concept or splits into the store's discount (*descuento*) and the bank's refund (*reintegro*). In Spanish, users keep them apart. See the **En español** line of Reduction in the glossary. Deferred: a concrete example is needed before deciding. Revisit when S4b and S4d are refined. "Reduction" is also not a common English term for this (English uses discount, rebate, cashback), so the English name may change too.
+The following broader product-modeling decisions are deferred because S4b records applied receipt amounts, not promotion rules or later refunds:
+
+* How a store sale price-cut rule is represented alongside other program promotions.
 
 ---
 

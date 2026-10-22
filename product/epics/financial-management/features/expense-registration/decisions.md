@@ -159,7 +159,7 @@ All purchase items of an expense are in the currency of the expense. A receipt w
 
 #### Purchase Items Are Not Checked Against the Amount in S4a
 
-S4a does not check that the purchase items add up to the amount of the expense. The product owner prefers that they add up exactly. S4b now requires the complete item line totals minus recorded item discounts to equal the charged total.
+Superseded by S4b ("Itemized Expenses Must Reconcile Exactly"). S4a did not check that the purchase items add up to the amount of the expense. From S4b on, every itemized expense must reconcile.
 
 ### Open Decisions
 
@@ -177,7 +177,7 @@ S4a does not check that the purchase items add up to the amount of the expense. 
 
 S4b records discount amounts already applied to prices and shown on the receipt. It records the concrete amount, not the promotion rule that produced it. Detecting promotions and validating later refunds belong to future features. A receipt discount associated with one purchase item is recorded against that item. One item can have more than one recorded discount.
 
-Record all item discounts for an expense as one complete set. A later submission replaces the prior set and is validated as a whole; a rejected replacement leaves the prior set unchanged.
+Discounts are recorded when the expense is registered. Each discount is sent inside the purchase item it applies to, so it needs no separate item reference. Editing the discounts of an existing expense is deferred (see Open Decisions).
 
 #### S4b Starts with Item-Specific Discounts
 
@@ -187,9 +187,11 @@ The first S4b slice records only discounts that can be associated with a purchas
 
 Record a discount only when it is shown as a separate applied amount and is reflected in the charged total. Do not record a savings summary again when it repeats an applied discount. Do not record loyalty savings that are embedded in item prices and do not reduce the charged total. In the [supermarket receipt](../../../../examples/supermarket-receipt.md), "AHORRO OFERTAS" repeats the 1,700.00 item discount and "AHORRO CLUBDIA" is not allocated to items or subtracted from the total.
 
-#### Itemized Receipts Must Reconcile Exactly
+#### Itemized Expenses Must Reconcile Exactly
 
-For an itemized expense in S4b, the sum of purchase item line totals minus the sum of recorded item-specific discounts must equal the charged total. Record an expense's item-specific discounts together as one complete set and reject the set if the resulting values do not match. This avoids an invalid intermediate state when one item has multiple discounts.
+For every itemized expense, the sum of purchase item line totals minus the sum of item discounts must equal the charged total. This applies with or without discounts. An expense without purchase items is not checked. Registration is rejected if the values do not match.
+
+Consequence: stored expenses are validated when they are loaded, so a stored itemized expense that does not reconcile (for example one registered before S4b) cannot be read. The API answers with the generic internal error. This is accepted because the product has no production data yet.
 
 The cumulative discounts on one item must not exceed its positive line total. Items with a zero or negative line total cannot have discounts.
 
@@ -206,6 +208,7 @@ This agreement also applies to S4d and S4f.
 The following broader product-modeling decisions are deferred because S4b records applied receipt amounts, not promotion rules or later refunds:
 
 * How a store sale price-cut rule is represented alongside other program promotions.
+* How the discounts of an existing expense are edited. The drafted replacement scenarios stay `@todo` in the feature file.
 
 ---
 

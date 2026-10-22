@@ -1,10 +1,10 @@
 # S4b — Record Store Discounts: Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` or `superpowers:executing-plans`, as selected after review. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** implement one acceptance scenario at a time: activate only that scenario, watch it fail, implement the minimum, pass it, then continue. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Record and review the complete set of item-specific discounts already applied on a receipt, while rejecting any set that does not reconcile exactly with the expense charged total.
+**Goal:** Record item discounts nested under `items[]` at registration, show them on `GET`, and require every itemized expense to reconcile exactly.
 
-**Architecture:** Keep discount values inside the `Expense` aggregate and each targeted `PurchaseItem`. The application loads the expense, asks the domain to validate a complete replacement set, then asks the Postgres repository to replace the persisted set in one transaction. The HTTP adapter parses decimal strings and maps domain errors to existing problem responses.
+**Architecture:** `NewExpense` validates items (with their discounts) and reconciliation. The HTTP adapter parses decimal strings and merges parse errors into the problem response. The Postgres repository saves and loads discounts inside the existing expense aggregate; there is no port or service change.
 
 **Tech Stack:** Go, `net/http`, `pgx/v5`, `shopspring/decimal`, PostgreSQL migrations, Godog, testify.
 
@@ -12,159 +12,89 @@
 
 ## Global Constraints
 
-* Record receipt-applied item discounts, not promotion rules, future refunds, expense-wide discounts, or merchant identity.
-* The full expense discount set is submitted together. A valid replacement overwrites the old set; an invalid replacement leaves it unchanged.
+* Record receipt-applied item discounts, not promotion rules, later refunds, expense-wide discounts, or merchant identity.
+* Discounts are sent at registration inside the item they apply to; no item reference is needed.
 * Item discounts are positive decimal amounts, in the expense currency, and keep their entered decimal scale.
 * Multiple discounts can target one item; their sum cannot exceed that item's positive line total.
-* Exact reconciliation is `sum(item line totals) - sum(item discounts) = charged total`.
-* A reduction is the concrete amount; a promotion is the rule. Do not add a `"store"` actor string or a promotion reference to `PurchaseItem`.
-* `.feature` is the behavior source of truth. Implement one acceptance scenario at a time: activate only that scenario, watch it fail, implement the minimum, pass it, then continue.
-* Run only one database-backed suite at a time. Use `make -C backend bdd`; finish with `make -C backend ci`.
+* Exact reconciliation is `sum(item line totals) - sum(item discounts) = charged total`, checked only when no other field error exists.
 * Use fixed safe HTTP problem responses. Never expose SQL or runtime errors.
+* Run only one database-backed suite at a time. Use `make -C backend bdd`; finish with `make -C backend ci`.
 
 ## File Structure
 
-* `backend/internal/domain/purchase_item.go`, `expense.go`: item discount values and complete-set validation.
-* `backend/internal/application/expense_service.go`, `ports.go`: replace-discounts use case and repository port.
-* `backend/internal/adapters/http/expense_handler.go`, `router.go`: PUT request parsing, response serialization, and route.
-* `backend/internal/adapters/postgres/expense_repository.go` and `migrations/0003_expense_item_discounts.{up,down}.sql`: ordered persistence and atomic replacement.
+* `backend/internal/domain/purchase_item.go`, `expense.go`: `ItemDiscountInput`, `ItemDiscount`, per-discount validation, per-item cap, expense reconciliation.
+* `backend/internal/adapters/http/expense_handler.go`: `discounts` request/response shapes, decimal parsing, parse-error merge.
+* `backend/internal/adapters/postgres/expense_repository.go` and `migrations/0003_expense_item_discounts.{up,down}.sql`: ordered persistence inside the save transaction and the load query.
 * `backend/features/expenses/record_store_discounts.feature`, `steps_test.go`: executable acceptance scenarios and bindings.
-* Existing domain, HTTP, application, and repository test files: focused validation/round-trip coverage.
+* Existing domain, HTTP, and repository test files: focused validation and round-trip coverage.
 
-## Review Focus
+## Tasks
 
-* Missing or empty discounts on an expense whose items do not reconcile: return 422 without altering existing discounts.
-* An item position outside the expense's items: return 422 and do not partially persist the set.
-* A zero or negative discount amount, blank description, or malformed decimal: reject with the correct validation field/code.
-* Multiple discounts whose total exceeds the target item's positive line total, including a zero/negative return item: reject even if the overall expense would otherwise reconcile.
-* Replacing an existing set with a mismatched set: reject and preserve the previous set; repeating a valid identical set does not duplicate entries.
-
----
-
-### Task 1: Record one item discount
-
-**Files:**
-- Modify: `backend/features/expenses/record_store_discounts.feature`
-- Modify: `backend/features/steps_test.go`
-- Modify: `backend/internal/domain/purchase_item.go`, `expense.go`, `expense_test.go`
- - Modify: `backend/internal/domain/purchase_item.go` to add `ID uuid.UUID`, `expense.go`, `expense_test.go`
-- Modify: `backend/internal/application/expense_service.go`, `ports.go`
-- Modify: `backend/internal/adapters/http/expense_handler.go`, `router.go`, `expense_handler_test.go`
-- Create: `backend/internal/adapters/postgres/migrations/0003_expense_item_discounts.up.sql`
-- Create: `backend/internal/adapters/postgres/migrations/0003_expense_item_discounts.down.sql`
-- Modify: `backend/internal/adapters/postgres/expense_repository.go`
- - Create: `backend/internal/adapters/postgres/migrations/0003_add_item_id_to_expense_items.up.sql`
- - Create: `backend/internal/adapters/postgres/migrations/0003_add_item_id_to_expense_items.down.sql`
- - Create: `backend/internal/adapters/postgres/migrations/0004_expense_item_discounts.up.sql`
- - Create: `backend/internal/adapters/postgres/migrations/0004_expense_item_discounts.down.sql`
- - Modify: `backend/internal/adapters/postgres/expense_repository.go`
-
-**Interfaces:**
-- `domain.ItemDiscountInput { ItemPosition *int; Description string; Amount *decimal.Decimal }`
- - `domain.ItemDiscountInput { ItemID *uuid.UUID; ItemPosition *int; Description string; Amount *decimal.Decimal }`
-- `domain.ItemDiscount { Description string; Amount decimal.Decimal }`
-- `func (e *Expense) ReplaceItemDiscounts(inputs []ItemDiscountInput) *ValidationError`; Task 1 validates field values and targets, Task 3 adds exact total reconciliation, and Task 6 adds the per-item cap.
-- Add `Discounts []ItemDiscount` to `PurchaseItem`.
-- Add `SaveItemDiscounts(ctx context.Context, e *domain.Expense) error` to `application.ExpenseRepository`, replacing the full persisted set for that expense.
-- Add `ExpenseService.ReplaceItemDiscounts(ctx context.Context, id uuid.UUID, inputs []domain.ItemDiscountInput) (*domain.Expense, error)`.
-- HTTP route: `PUT /api/v1/expenses/{id}/item-discounts`.
- - Add `SaveItemDiscounts(ctx context.Context, e *domain.Expense) error` to `application.ExpenseRepository`, replacing the full persisted set for that expense.
- - Add `ExpenseService.ReplaceItemDiscounts(ctx context.Context, id uuid.UUID, inputs []domain.ItemDiscountInput) (*domain.Expense, error)`.
- - Modify `backend/internal/adapters/http/createRequest` item shape to accept optional per-item `discounts` array during expense registration.
- - HTTP route: `PUT /api/v1/expenses/{id}/item-discounts`.
-
-- [ ] **Step 1: Remove `@todo` from only `Scenario: Record a store discount on one item` and implement its step bindings using the receipt values: charged total 59,690.00 ARS, Coca Cola line total 12,750.00 ARS, other item totals 48,640.00 ARS, and discount 1,700.00 ARS.**
-- [ ] **Step 2: Run `make -C backend bdd`; verify that scenario fails because no item-discount route/behavior exists.**
-- [ ] **Step 3: Add failing domain tests for a valid 5.00 discount, required description/amount, positive amount, and an item position that does not exist. Verify with `cd backend && go test ./internal/domain -run 'TestExpenseReplaceItemDiscounts'`.**
-- [ ] **Step 4: Implement the domain types and replacement method. Build and validate a candidate set before assigning it to the expense.**
-- [ ] **Step 5: Add the migration and repository replacement method. Use one transaction to delete the prior set and insert the ordered candidate; rollback on any error.**
-- [ ] **Step 6: Add the application operation, PUT handler, route, and nested `discounts` response serialization. Parse request decimal strings and merge parse errors with domain errors; always serialize an empty `discounts` array when an item has none.**
-- [ ] **Step 7: Run `cd backend && go test ./internal/... ./cmd/...` and `make -C backend bdd`; verify the activated scenario passes.**
-- [ ] **Step 8: Commit** with `feat: record item discounts for an expense`.
-
-### Task 2: Review the discounts on an expense
-
-**Files:**
-- Modify: `backend/features/expenses/record_store_discounts.feature`, `backend/features/steps_test.go`
-- Modify: `backend/internal/adapters/postgres/expense_repository.go`
-- Test: `backend/internal/adapters/postgres/expense_repository_test.go`, `backend/internal/adapters/http/expense_handler_test.go`
-
-- [ ] **Step 1: Remove `@todo` from only `Scenario: Review the store discounts of an expense`.**
-- [ ] **Step 2: Run the BDD scenario; verify it fails because `GET` does not load and show discounts.**
-- [ ] **Step 3: Add a repository test that loads discounts for their item in stored order and preserves decimal scale.**
-- [ ] **Step 4: Load discounts ordered by item and discount position; attach them to each `PurchaseItem`.**
-- [ ] **Step 5: Verify HTTP output always includes each item's `discounts` array (empty if none) and includes `amount` and `description` for a recorded discount.**
-- [ ] **Step 6: Run focused Go tests and the BDD suite; verify the review scenario passes.**
-- [ ] **Step 7: Commit** with `feat: review expense item discounts`.
-
-### Task 3: Reject an unreconciled complete set
+### Task 1: Reject an itemized expense whose items do not reconcile
 
 **Files:**
 - Modify: `backend/features/expenses/record_store_discounts.feature`, `backend/features/steps_test.go`
 - Modify: `backend/internal/domain/expense.go`, `expense_test.go`
-- Modify: `backend/internal/adapters/http/expense_handler_test.go`
+- Modify: `backend/internal/adapters/http/expense_handler_test.go` fixtures that use items
 
-- [ ] **Step 1: Remove `@todo` from only `Scenario: Reject an item discount when the itemized expense does not reconcile`.**
-- [ ] **Step 2: Run the scenario; verify that a 3.00 ARS discount against 100.00 ARS item total and 95.00 ARS charged total is incorrectly accepted before the fix.**
-- [ ] **Step 3: Add a domain test that rejects a set unless total item line totals minus all discounts equals the charged total.**
-- [ ] **Step 4: Implement the exact comparison with `decimal.Decimal`; report the mismatch as a validation error on `discounts`.**
-- [ ] **Step 5: Verify the handler returns 422 and the repository is not called when validation fails.**
-- [ ] **Step 6: Run focused Go tests and the BDD suite; verify the mismatch scenario passes.**
-- [ ] **Step 7: Commit** with `test: require item discounts to reconcile`.
+- [ ] Activate `Scenario: Reject an itemized expense whose items do not reconcile` and watch it fail.
+- [ ] Add `NewExpense` reconciliation: with no field errors and at least one item, `sum(line_total)` must equal `amount` via `decimal.Equal`; mismatch reports `items`/`not_reconciled`.
+- [ ] Fix S4a fixtures that no longer reconcile (single-item helpers send `amount` = the item line total when it parses; the two-item helper sends the items sum; rejection outlines keep `14000.00`).
+- [ ] Focused `go test ./internal/...` plus `make -C backend bdd`; commit.
 
-### Task 4: Prove multiple discounts on one item
+### Task 2: Register an expense with a store discount on one item
+
+**Files:**
+- Modify: `backend/internal/domain/purchase_item.go`, `expense.go`, `purchase_item_test.go`, `expense_test.go`
+- Modify: `backend/internal/adapters/http/expense_handler.go`, `expense_handler_test.go`
+- Modify: `backend/features/expenses/record_store_discounts.feature`, `backend/features/steps_test.go`
+
+- [ ] Activate `Scenario: Register an expense with a store discount on one item` and watch it fail.
+- [ ] Add `ItemDiscountInput`, `ItemDiscount`, `PurchaseItemInput.Discounts`, `PurchaseItem.Discounts`; `NewPurchaseItem` gains a `discounts` parameter (update all callers).
+- [ ] Per-discount validation: `description` required (trimmed), `amount` required, `not_positive` when ≤ 0.
+- [ ] Parse `items[].discounts[].amount` in the adapter; report `items[i].discounts[j].amount`/`invalid` through `withParseErrors`. Subtract discounts in the reconciliation.
+- [ ] Response `items[].discounts` is always an array with scale-preserved `amount` and `description`.
+- [ ] Focused tests plus BDD; commit.
+
+### Task 3: Review the store discounts of an expense
+
+**Files:**
+- Create: `backend/internal/adapters/postgres/migrations/0003_expense_item_discounts.{up,down}.sql`
+- Modify: `backend/internal/adapters/postgres/expense_repository.go`, `expense_repository_test.go`
+- Modify: `backend/features/steps_test.go` truncate, `AGENTS.md`, `.github/copilot-instructions.md` (one sentence only)
+
+- [ ] Activate `Scenario: Review the store discounts of an expense` and watch it fail.
+- [ ] Add the migration per the spec schema.
+- [ ] `Save` inserts discounts in the same transaction; `FindByID` loads them ordered by `item_position, position` into `PurchaseItemInput.Discounts` before `NewExpense`.
+- [ ] Repository round-trip test: order and scale (`"1700.00"`).
+- [ ] Update the BDD truncate to `TRUNCATE expense_item_discounts, expense_items, expenses` and the matching sentences in `AGENTS.md` and `.github/copilot-instructions.md`.
+- [ ] Focused tests plus BDD; commit.
+
+### Task 4: Reject item discounts that do not reconcile
+
+- [ ] Activate `Scenario: Reject item discounts that do not reconcile`. If it already passes after Task 2, keep this task test-only; commit.
+
+### Task 5: Register multiple discounts on one item
+
+- [ ] Activate `Scenario: Register multiple discounts on one item`. If it already passes after Task 2, keep this task test-only; commit.
+
+### Task 6: Reject discounts that exceed the item's line total
 
 **Files:**
 - Modify: `backend/features/expenses/record_store_discounts.feature`, `backend/features/steps_test.go`
-- Test: `backend/internal/domain/expense_test.go`, `backend/internal/adapters/postgres/expense_repository_test.go`
+- Modify: `backend/internal/domain/purchase_item.go`, `purchase_item_test.go`
 
-- [ ] **Step 1: Remove `@todo` from only `Scenario: Record multiple discounts on one item together`.**
-- [ ] **Step 2: Add the BDD step binding to submit both 3.00 and 2.00 ARS entries in one complete-set request.**
-- [ ] **Step 3: Add domain and repository tests asserting both ordered discounts are attached to the target item and `100.00 - 3.00 - 2.00 = 95.00` is accepted.**
-- [ ] **Step 4: Run focused tests and BDD; verify the scenario passes. If it already passes with Task 1's list model, keep this task test-only rather than changing production code.**
-- [ ] **Step 5: Commit** with `test: cover multiple discounts on one item`.
+- [ ] Activate `Scenario: Reject discounts that exceed the item's line total` and watch it fail.
+- [ ] When all discount entries on an item are valid and their sum exceeds `max(line_total, 0)`, report `discounts`/`exceeds_line_total` (a sum equal to the line total is allowed; any discount on a zero or negative item is rejected).
+- [ ] Focused tests plus BDD; commit.
 
-### Task 5: Replace the complete set atomically
+### Task 7: Reject invalid item discount data
 
-**Files:**
-- Modify: `backend/features/expenses/record_store_discounts.feature`, `backend/features/steps_test.go`
-- Test: `backend/internal/application/expense_service_test.go`, `backend/internal/adapters/postgres/expense_repository_test.go`
-
-- [ ] **Step 1: Remove `@todo` from only `Scenario: Replace the complete item discount set`.**
-- [ ] **Step 2: Run the scenario; verify it fails unless an invalid replacement is rejected and the prior set remains.**
-- [ ] **Step 3: Add a domain/application test that invalid input preserves the existing set and does not call the repository, plus a repository test that a failed transaction rolls back deletion of the old set.**
-- [ ] **Step 4: Ensure candidate domain validation happens before repository writes and repository delete/insert is transactional.**
-- [ ] **Step 5: Run focused tests and BDD; verify the scenario passes and previous discounts remain after rejected replacement.**
-- [ ] **Step 6: Commit** with `feat: replace item discount sets atomically`.
-
-### Task 6: Prove valid replacement does not append
-
-**Files:**
-- Modify: `backend/features/expenses/record_store_discounts.feature`, `backend/features/steps_test.go`
-- Test: `backend/internal/adapters/http/expense_handler_test.go`, `backend/internal/adapters/postgres/expense_repository_test.go`
-
-- [ ] **Step 1: Remove `@todo` from only `Scenario: Replace an item discount set without duplicating entries`.**
-- [ ] **Step 2: Add the BDD steps to submit `[3.00, 2.00]`, replace with `[4.00, 1.00]`, and submit that same replacement again.**
-- [ ] **Step 3: Add assertions that the resulting item has exactly two discounts, in order and with the replacement values.**
-- [ ] **Step 4: Run focused tests and BDD; verify old values are removed and the repeated request does not duplicate rows.**
-- [ ] **Step 5: Commit** with `test: prove item discount replacement is idempotent`.
-
-### Task 7: Enforce each item's discount limit
-
-**Files:**
-- Modify: `backend/features/expenses/record_store_discounts.feature`, `backend/features/steps_test.go`
-- Test: `backend/internal/domain/expense_test.go`
-
-- [ ] **Step 1: Remove `@todo` from only `Scenario: Reject discounts that exceed the item's line total`.**
-- [ ] **Step 2: Run the scenario; verify that 110.00 ARS discounts on a 100.00 ARS item are rejected, even though the expense-wide total reconciles.**
-- [ ] **Step 3: Add domain tests rejecting cumulative discounts above line total and any discount on zero/negative items; allow a discount equal to a positive line total.**
-- [ ] **Step 4: Implement per-item cumulative validation before expense-wide reconciliation.**
-- [ ] **Step 5: Run focused tests and BDD; verify the scenario passes.**
-- [ ] **Step 6: Commit** with `feat: cap item discounts at line total`.
+- [ ] Activate `Scenario Outline: Invalid item discount data is rejected`. Cover `amount` 0/−1 → `not_positive`, `abc` → `invalid` (adapter), missing → `required`, and missing `description` → `required`. If it already passes, keep this task test-only; commit.
 
 ### Task 8: Validate the S4b slice
 
-- [ ] **Step 1: Run `make -C backend test`.**
-- [ ] **Step 2: Run `make -C backend bdd` by itself against the isolated test database.**
-- [ ] **Step 3: Run `make -C backend ci`.**
-- [ ] **Step 4: Confirm all S4b scenarios pass without `@todo`, no other slice's scenarios were activated, and the glossary/ADR/decisions links still agree.**
+- [ ] Run `make -C backend test`.
+- [ ] Run `make -C backend bdd` by itself against the isolated test database.
+- [ ] Run `make -C backend ci`.
+- [ ] Confirm all active S4b scenarios pass, only the two PUT replacement scenarios stay `@todo`, and all S4a scenarios still pass.

@@ -33,7 +33,10 @@ Feature: Itemize an expense
     And the purchase item keeps the line total 100.00 as printed
 
   Scenario: A returned deposit is a negative purchase item
-    When the Financial Manager registers an expense with a purchase item "RETURNABLE BOTTLE" of quantity 3, unit price -3001.00 and line total -9003.00
+    When the Financial Manager registers an expense at "2026-10-05T16:53:34-03:00" for 10000.00 "ARS" described as "Gas station store" with items:
+      | description       | quantity | unit price | line total |
+      | RETURNABLE BOTTLE | 3        | -3001.00   | -9003.00   |
+      | Bottled water     | 1        | 19003.00   | 19003.00   |
     Then the expense is recorded
     And the purchase item shows quantity 3 and line total -9003.00
 

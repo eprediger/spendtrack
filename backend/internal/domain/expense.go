@@ -43,7 +43,7 @@ func NewExpense(occurredAt time.Time, amount *decimal.Decimal, currency *string,
 
 	var expenseItems []PurchaseItem
 	for i, input := range items {
-		item, errs := NewPurchaseItem(input.Description, input.Quantity, input.UnitPrice, input.LineTotal)
+		item, errs := NewPurchaseItem(input.Description, input.Quantity, input.UnitPrice, input.LineTotal, input.Discounts)
 		for j := range errs {
 			errs[j].Field = fmt.Sprintf("items[%d].%s", i, errs[j].Field)
 		}
@@ -57,6 +57,9 @@ func NewExpense(occurredAt time.Time, amount *decimal.Decimal, currency *string,
 		var total decimal.Decimal
 		for _, item := range expenseItems {
 			total = total.Add(item.LineTotal)
+			for _, discount := range item.Discounts {
+				total = total.Sub(discount.Amount)
+			}
 		}
 		if !total.Equal(money.Amount) {
 			fe = append(fe, FieldError{Field: "items", Code: "not_reconciled", Detail: "item line totals minus discounts must equal amount"})

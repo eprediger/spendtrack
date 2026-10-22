@@ -127,6 +127,20 @@ func TestNewExpenseReconciliation(t *testing.T) {
 	require.NotNil(t, verr)
 	assert.Equal(t, map[string]string{"items[0].quantity": "not_positive"}, fieldCodes(verr),
 		"reconciliation is skipped when other field errors exist")
+
+	e, verr = NewExpense(past, dec("95.00"), ptr("ARS"), "Store purchase", []PurchaseItemInput{
+		{Description: "Soft drink", Quantity: dec("1"), UnitPrice: dec("100.00"), LineTotal: dec("100.00"),
+			Discounts: []ItemDiscountInput{{Description: "Promo", Amount: dec("5.00")}}},
+	}, now)
+	require.Nil(t, verr, "discounts are subtracted before reconciling")
+	require.Len(t, e.Items[0].Discounts, 1)
+
+	_, verr = NewExpense(past, dec("95.00"), ptr("ARS"), "Store purchase", []PurchaseItemInput{
+		{Description: "Soft drink", Quantity: dec("1"), UnitPrice: dec("100.00"), LineTotal: dec("100.00"),
+			Discounts: []ItemDiscountInput{{Description: "Promo", Amount: dec("-1.00")}}},
+	}, now)
+	require.NotNil(t, verr)
+	assert.Equal(t, map[string]string{"items[0].discounts[0].amount": "not_positive"}, fieldCodes(verr))
 }
 
 func fieldCodes(verr *ValidationError) map[string]string {

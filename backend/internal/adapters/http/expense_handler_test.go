@@ -63,6 +63,28 @@ func TestParseItems(t *testing.T) {
 	assert.Equal(t, int32(-3), items[0].Quantity.Exponent())
 }
 
+func TestParseItemsDiscounts(t *testing.T) {
+	items, errs := parseItems([]itemRequest{
+		{
+			Description: text("COCA COLA R 2L"), Quantity: text("1"),
+			UnitPrice: text("12750.00"), LineTotal: text("12750.00"),
+			Discounts: []discountRequest{
+				{Description: text("2DO AL 40% LINEA COC"), Amount: text("1700.00")},
+				{Description: text("PROMO"), Amount: text("abc")},
+			},
+		},
+	})
+	require.Len(t, items, 1)
+	require.Len(t, items[0].Discounts, 2)
+	assert.Equal(t, "2DO AL 40% LINEA COC", items[0].Discounts[0].Description)
+	require.NotNil(t, items[0].Discounts[0].Amount)
+	assert.True(t, items[0].Discounts[0].Amount.Equal(decimal.RequireFromString("1700.00")))
+	assert.Nil(t, items[0].Discounts[1].Amount)
+	require.Equal(t, []domain.FieldError{
+		{Field: "items[0].discounts[1].amount", Code: "invalid", Detail: "must be a decimal number"},
+	}, errs)
+}
+
 // TestFormatAmount locks the scale-preserving rendering: input scale must
 // survive, not collapse to "45.9".
 func TestFormatAmount(t *testing.T) {
@@ -128,7 +150,18 @@ func TestToResponseItems(t *testing.T) {
 		Quantity:    "0.750",
 		UnitPrice:   "3200.00",
 		LineTotal:   "2400.00",
+		Discounts:   []discountResponse{},
 	}, response.Items[0])
+	assert.NotNil(t, response.Items[0].Discounts)
+
+	expense.Items[0].Discounts = []domain.ItemDiscount{{
+		Description: "2DO AL 40% LINEA COC",
+		Amount:      decimal.RequireFromString("1700.00"),
+	}}
+	response = toResponse(expense)
+	require.Equal(t, []discountResponse{
+		{Amount: "1700.00", Description: "2DO AL 40% LINEA COC"},
+	}, response.Items[0].Discounts)
 }
 
 func TestParseItemsNullItem(t *testing.T) {

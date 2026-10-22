@@ -33,10 +33,16 @@ type createRequest struct {
 }
 
 type itemRequest struct {
+	Description *string           `json:"description"`
+	Quantity    *string           `json:"quantity"`
+	UnitPrice   *string           `json:"unit_price"`
+	LineTotal   *string           `json:"line_total"`
+	Discounts   []discountRequest `json:"discounts"`
+}
+
+type discountRequest struct {
 	Description *string `json:"description"`
-	Quantity    *string `json:"quantity"`
-	UnitPrice   *string `json:"unit_price"`
-	LineTotal   *string `json:"line_total"`
+	Amount      *string `json:"amount"`
 }
 
 type expenseResponse struct {
@@ -49,10 +55,16 @@ type expenseResponse struct {
 }
 
 type itemResponse struct {
+	Description string             `json:"description"`
+	Quantity    string             `json:"quantity"`
+	UnitPrice   string             `json:"unit_price"`
+	LineTotal   string             `json:"line_total"`
+	Discounts   []discountResponse `json:"discounts"`
+}
+
+type discountResponse struct {
+	Amount      string `json:"amount"`
 	Description string `json:"description"`
-	Quantity    string `json:"quantity"`
-	UnitPrice   string `json:"unit_price"`
-	LineTotal   string `json:"line_total"`
 }
 
 // formatAmount keeps the scale: "45.90" must not become "45.9".
@@ -96,6 +108,18 @@ func parseItems(reqs []itemRequest) ([]domain.PurchaseItemInput, []domain.FieldE
 			}
 			*field.dst = value
 		}
+		items[i].Discounts = make([]domain.ItemDiscountInput, len(req.Discounts))
+		for j, dreq := range req.Discounts {
+			if dreq.Description != nil {
+				items[i].Discounts[j].Description = *dreq.Description
+			}
+			amount, ferr := parseAmount(dreq.Amount)
+			if ferr != nil {
+				ferr.Field = fmt.Sprintf("items[%d].discounts[%d].amount", i, j)
+				errs = append(errs, *ferr)
+			}
+			items[i].Discounts[j].Amount = amount
+		}
 	}
 	return items, errs
 }
@@ -134,12 +158,20 @@ func toResponse(e *domain.Expense) expenseResponse {
 		Items:       make([]itemResponse, 0, len(e.Items)),
 	}
 	for _, item := range e.Items {
-		response.Items = append(response.Items, itemResponse{
+		out := itemResponse{
 			Description: item.Description,
 			Quantity:    formatAmount(item.Quantity),
 			UnitPrice:   formatAmount(item.UnitPrice),
 			LineTotal:   formatAmount(item.LineTotal),
-		})
+			Discounts:   make([]discountResponse, 0, len(item.Discounts)),
+		}
+		for _, discount := range item.Discounts {
+			out.Discounts = append(out.Discounts, discountResponse{
+				Amount:      formatAmount(discount.Amount),
+				Description: discount.Description,
+			})
+		}
+		response.Items = append(response.Items, out)
 	}
 	return response
 }

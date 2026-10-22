@@ -12,7 +12,6 @@ Feature: Record store discounts
   purchase item they apply to. The line totals of all purchase items minus all
   item discounts must equal the charged total of the expense.
 
-  @todo
   Scenario: Register an expense with a store discount on one item
     When the Financial Manager registers an expense with charged total 59690.00 "ARS", item "COCA COLA R 2L" line total 12750.00 "ARS" with a store discount of 1700.00 "ARS" described as "2DO AL 40% LINEA COC", and other items totaling 48640.00 "ARS"
     Then the expense is recorded

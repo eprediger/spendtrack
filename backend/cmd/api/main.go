@@ -50,10 +50,14 @@ func main() {
 
 	log.Printf("listening on :%d", cfg.Port)
 	<-ctx.Done()
+	stop() // a second signal now kills the process instead of waiting for the drain
+	log.Printf("shutting down")
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// Stays below Docker's default 10s stop grace period so cleanup runs before SIGKILL.
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Fatalf("shutdown: %v", err)
 	}
+	log.Printf("stopped")
 }

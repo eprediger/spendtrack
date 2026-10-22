@@ -24,7 +24,6 @@ Feature: Record store discounts
     When the Financial Manager reviews the expense
     Then the expense shows the discount amount and description on the item it applies to
 
-  @todo
   Scenario: Reject an itemized expense whose items do not reconcile
     When the Financial Manager registers an expense with a charged total of 95.00 "ARS" and item "SOFT DRINK 2L" line total of 100.00 "ARS" without discounts
     Then the registration is rejected because the itemized expense does not reconcile

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cucumber/godog"
+	"github.com/shopspring/decimal"
 )
 
 type state struct {
@@ -70,6 +71,8 @@ func initializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the Financial Manager registers an expense without "([^"]*)"$`, registerWithout)
 	sc.Step(`^the Financial Manager registers an expense with:$`, registerWithTable)
 	sc.Step(`^the Financial Manager registers an expense that occurs in the future for (\S+) "([^"]*)" described as "([^"]*)"$`, registerFuture)
+	sc.Step(`^the Financial Manager registers an expense with a charged total of (\S+) "([^"]*)" and item "([^"]*)" line total of (\S+) "([^"]*)" without discounts$`, registerItemizedExpenseNoDiscounts)
+	sc.Step(`^the registration is rejected because the itemized expense does not reconcile$`, rejectedNotReconciled)
 	sc.Step(`^the registration is rejected$`, rejected)
 	sc.Step(`^the system indicates "([^"]*)" is required$`, indicatesRequired)
 	sc.Step(`^the system indicates the (\w+) is invalid$`, indicatesInvalid)
@@ -150,7 +153,7 @@ func expenseHasNoItems() error {
 func registeredExpenseWithItems() error {
 	if err := post("/api/v1/expenses", map[string]any{
 		"occurred_at": "2026-10-05T16:53:34-03:00",
-		"amount":      "14000.00",
+		"amount":      "4150.00",
 		"currency":    "ARS",
 		"description": "Gas station store",
 		"items": []map[string]string{
@@ -225,9 +228,13 @@ func registerPurchaseItemWithInvalid(field, value string) error {
 }
 
 func postExpenseWithPurchaseItem(item map[string]string) error {
+	amount := "14000.00"
+	if _, err := decimal.NewFromString(item["line_total"]); err == nil {
+		amount = item["line_total"]
+	}
 	return post("/api/v1/expenses", map[string]any{
 		"occurred_at": "2026-10-05T16:53:34-03:00",
-		"amount":      "14000.00",
+		"amount":      amount,
 		"currency":    "ARS",
 		"description": "Gas station store",
 		"items":       []map[string]string{item},
@@ -414,6 +421,25 @@ func registerFuture(amount, currency, description string) error {
 		"occurred_at": future, "amount": amount,
 		"currency": currency, "description": description,
 	})
+}
+
+func registerItemizedExpenseNoDiscounts(amount, currency, itemDescription, lineTotal, _ string) error {
+	return post("/api/v1/expenses", map[string]any{
+		"occurred_at": "2026-10-05T16:53:34-03:00",
+		"amount":      amount,
+		"currency":    currency,
+		"description": "Store purchase",
+		"items": []map[string]string{
+			{"description": itemDescription, "quantity": "1", "unit_price": lineTotal, "line_total": lineTotal},
+		},
+	})
+}
+
+func rejectedNotReconciled() error {
+	if err := rejected(); err != nil {
+		return err
+	}
+	return fieldErrors("items", "not_reconciled")
 }
 
 func rejected() error {

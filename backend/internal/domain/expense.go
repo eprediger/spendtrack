@@ -53,6 +53,16 @@ func NewExpense(occurredAt time.Time, amount *decimal.Decimal, currency *string,
 		}
 	}
 
+	if len(fe) == 0 && len(items) > 0 {
+		var total decimal.Decimal
+		for _, item := range expenseItems {
+			total = total.Add(item.LineTotal)
+		}
+		if !total.Equal(money.Amount) {
+			fe = append(fe, FieldError{Field: "items", Code: "not_reconciled", Detail: "item line totals minus discounts must equal amount"})
+		}
+	}
+
 	if len(fe) > 0 {
 		return nil, &ValidationError{Fields: fe}
 	}

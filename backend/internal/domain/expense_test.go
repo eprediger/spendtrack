@@ -84,7 +84,7 @@ func TestNewExpenseItems(t *testing.T) {
 		{Description: "Bottled water", Quantity: dec("1"), UnitPrice: dec("3400.00"), LineTotal: dec("3400.00")},
 	}
 
-	e, verr := NewExpense(past, dec("14000.00"), ptr("ARS"), "Gas station store", items, now)
+	e, verr := NewExpense(past, dec("4150.00"), ptr("ARS"), "Gas station store", items, now)
 	require.Nil(t, verr)
 	require.Len(t, e.Items, 2)
 	assert.Equal(t, "Candies", e.Items[0].Description)
@@ -96,6 +96,45 @@ func TestNewExpenseItems(t *testing.T) {
 	withoutItems, verr := NewExpense(past, dec("45.90"), ptr("USD"), "Groceries", nil, now)
 	require.Nil(t, verr)
 	assert.Empty(t, withoutItems.Items)
+}
+
+func TestNewExpenseReconciliation(t *testing.T) {
+	now := occurred(t, "2026-09-27T18:00:00Z")
+	past := occurred(t, "2026-09-20T14:30:00-03:00")
+
+	e, verr := NewExpense(past, dec("4150.00"), ptr("ARS"), "Gas station store", []PurchaseItemInput{
+		{Description: "Candies", Quantity: dec("5"), UnitPrice: dec("150.00"), LineTotal: dec("750.00")},
+		{Description: "Bottled water", Quantity: dec("1"), UnitPrice: dec("3400.00"), LineTotal: dec("3400.00")},
+	}, now)
+	require.Nil(t, verr)
+	require.Len(t, e.Items, 2)
+
+	e, verr = NewExpense(past, dec("4150.0"), ptr("ARS"), "Gas station store", []PurchaseItemInput{
+		{Description: "Bottled water", Quantity: dec("1"), UnitPrice: dec("4150.00"), LineTotal: dec("4150.00")},
+	}, now)
+	require.Nil(t, verr, "comparison ignores scale")
+	require.Len(t, e.Items, 1)
+
+	_, verr = NewExpense(past, dec("95.00"), ptr("ARS"), "Store purchase", []PurchaseItemInput{
+		{Description: "Soft drink", Quantity: dec("1"), UnitPrice: dec("100.00"), LineTotal: dec("100.00")},
+	}, now)
+	require.NotNil(t, verr)
+	require.Equal(t, []FieldError{{Field: "items", Code: "not_reconciled", Detail: "item line totals minus discounts must equal amount"}}, verr.Fields)
+
+	_, verr = NewExpense(past, dec("95.00"), ptr("ARS"), "Store purchase", []PurchaseItemInput{
+		{Description: "Soft drink", Quantity: dec("0"), UnitPrice: dec("100.00"), LineTotal: dec("100.00")},
+	}, now)
+	require.NotNil(t, verr)
+	assert.Equal(t, map[string]string{"items[0].quantity": "not_positive"}, fieldCodes(verr),
+		"reconciliation is skipped when other field errors exist")
+}
+
+func fieldCodes(verr *ValidationError) map[string]string {
+	got := map[string]string{}
+	for _, field := range verr.Fields {
+		got[field.Field] = field.Code
+	}
+	return got
 }
 
 func TestNewExpenseItemErrors(t *testing.T) {

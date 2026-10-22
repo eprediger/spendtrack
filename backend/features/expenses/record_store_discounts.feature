@@ -30,7 +30,6 @@ Feature: Record store discounts
     When the Financial Manager registers an expense with a charged total of 95.00 "ARS" and item "SOFT DRINK 2L" line total of 100.00 "ARS" with item discounts totaling 3.00 "ARS"
     Then the registration is rejected because the itemized expense does not reconcile
 
-  @todo
   Scenario: Register multiple discounts on one item
     When the Financial Manager registers an expense with a charged total of 95.00 "ARS" and item "SOFT DRINK 2L" line total of 100.00 "ARS" with item discounts of 3.00 and 2.00 "ARS"
     Then the expense is recorded

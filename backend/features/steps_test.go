@@ -74,6 +74,8 @@ func initializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the Financial Manager registers an expense with a charged total of (\S+) "([^"]*)" and item "([^"]*)" line total of (\S+) "([^"]*)" without discounts$`, registerItemizedExpenseNoDiscounts)
 	sc.Step(`^the Financial Manager registers an expense with charged total (\S+) "([^"]*)", item "([^"]*)" line total (\S+) "([^"]*)" with a store discount of (\S+) "([^"]*)" described as "([^"]*)", and other items totaling (\S+) "([^"]*)"$`, registerExpenseWithStoreDiscount)
 	sc.Step(`^the Financial Manager registers an expense with a charged total of (\S+) "([^"]*)" and item "([^"]*)" line total of (\S+) "([^"]*)" with item discounts totaling (\S+) "([^"]*)"$`, registerItemDiscountsTotaling)
+	sc.Step(`^the Financial Manager registers an expense with a charged total of (\S+) "([^"]*)" and item "([^"]*)" line total of (\S+) "([^"]*)" with item discounts of (\S+) and (\S+) "([^"]*)"$`, registerTwoItemDiscounts)
+	sc.Step(`^both discounts are recorded on the item "([^"]*)"$`, bothDiscountsRecordedOnItem)
 	sc.Step(`^the discount is recorded on the item "([^"]*)"$`, discountRecordedOnItem)
 	sc.Step(`^an expense with a store discount was registered$`, registeredExpenseWithStoreDiscount)
 	sc.Step(`^the expense shows the discount amount and description on the item it applies to$`, expenseShowsDiscount)
@@ -491,6 +493,67 @@ func registerItemDiscountsTotaling(amount, currency, itemDescription, lineTotal,
 			},
 		},
 	})
+}
+
+func registerTwoItemDiscounts(amount, currency, itemDescription, lineTotal, _ string, first, second, _ string) error {
+	return post("/api/v1/expenses", map[string]any{
+		"occurred_at": "2026-10-05T16:53:34-03:00",
+		"amount":      amount,
+		"currency":    currency,
+		"description": "Store purchase",
+		"items": []map[string]any{
+			{
+				"description": itemDescription, "quantity": "1",
+				"unit_price": lineTotal, "line_total": lineTotal,
+				"discounts": []map[string]string{
+					{"amount": first, "description": "Store discount"},
+					{"amount": second, "description": "Loyalty discount"},
+				},
+			},
+		},
+	})
+}
+
+func discountsOnItem(body map[string]any, description string) ([]any, error) {
+	items, _ := body["items"].([]any)
+	for _, raw := range items {
+		item, _ := raw.(map[string]any)
+		if item["description"] == description {
+			discounts, _ := item["discounts"].([]any)
+			return discounts, nil
+		}
+	}
+	return nil, fmt.Errorf("no item %q in %v", description, body["items"])
+}
+
+func checkTwoDiscounts(body map[string]any, description string) error {
+	discounts, err := discountsOnItem(body, description)
+	if err != nil {
+		return err
+	}
+	if len(discounts) != 2 {
+		return fmt.Errorf("expected 2 discounts on item %q, got %v", description, discounts)
+	}
+	for i, want := range []string{"3.00", "2.00"} {
+		discount, _ := discounts[i].(map[string]any)
+		if discount["amount"] != want {
+			return fmt.Errorf("discount %d: want amount %q, got %v", i, want, discounts)
+		}
+	}
+	return nil
+}
+
+func bothDiscountsRecordedOnItem(description string) error {
+	if err := checkTwoDiscounts(st.body, description); err != nil {
+		return fmt.Errorf("registration response: %w", err)
+	}
+	if err := reviewExpense(); err != nil {
+		return err
+	}
+	if st.status != http.StatusOK {
+		return fmt.Errorf("expected 200 on review, got %d: %v", st.status, st.body)
+	}
+	return checkTwoDiscounts(st.body, description)
 }
 
 func registeredExpenseWithStoreDiscount() error {

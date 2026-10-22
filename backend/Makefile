@@ -50,8 +50,8 @@ coverage: test-db ## Run all tests with coverage report
 
 coverage-run: ## Run unit + BDD coverage (needs DATABASE_URL in env)
 	rm -rf .coverdata && mkdir -p .coverdata/unit .coverdata/bdd
-	go test -cover -coverpkg=./internal/...,./cmd/... ./internal/... ./cmd/... -args -test.gocoverdir=$(abspath .coverdata/unit)
-	GOCOVERDIR=$(abspath .coverdata/bdd) go test ./features/...
+	go test -count=1 -cover -coverpkg=./internal/...,./cmd/... ./internal/... ./cmd/... -args -test.gocoverdir=$(abspath .coverdata/unit)
+	GOCOVERDIR=$(abspath .coverdata/bdd) go test -count=1 ./features/...
 	go tool covdata textfmt -i=.coverdata/unit,.coverdata/bdd -o coverage.out
 	go tool cover -func=coverage.out | tail -1
 

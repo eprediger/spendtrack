@@ -135,10 +135,9 @@ func (r *expenseRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain
 		if itemPosition < 0 || int(itemPosition) >= len(items) {
 			return nil, fmt.Errorf("stored expense %s has a discount on unknown item position %d", id, itemPosition)
 		}
-		amount := discountAmount
 		items[itemPosition].Discounts = append(items[itemPosition].Discounts, domain.ItemDiscountInput{
 			Description: discountDescription,
-			Amount:      &amount,
+			Amount:      &discountAmount,
 		})
 	}
 	if err := discountRows.Err(); err != nil {

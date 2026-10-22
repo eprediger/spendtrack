@@ -76,6 +76,8 @@ func initializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the Financial Manager registers an expense with a charged total of (\S+) "([^"]*)" and item "([^"]*)" line total of (\S+) "([^"]*)" with item discounts totaling (\S+) "([^"]*)"$`, registerItemDiscountsTotaling)
 	sc.Step(`^the Financial Manager registers an expense with a charged total of (\S+) "([^"]*)" and item "([^"]*)" line total of (\S+) "([^"]*)" with item discounts of (\S+) and (\S+) "([^"]*)"$`, registerTwoItemDiscounts)
 	sc.Step(`^both discounts are recorded on the item "([^"]*)"$`, bothDiscountsRecordedOnItem)
+	sc.Step(`^the Financial Manager registers an expense with a charged total of (\S+) "([^"]*)", item "([^"]*)" line total of (\S+) "([^"]*)" with item discounts totaling (\S+) "([^"]*)", and another item line total of (\S+) "([^"]*)"$`, registerExceedingItemDiscounts)
+	sc.Step(`^the registration is rejected because the discounts exceed that item's line total$`, rejectedDiscountsExceed)
 	sc.Step(`^the discount is recorded on the item "([^"]*)"$`, discountRecordedOnItem)
 	sc.Step(`^an expense with a store discount was registered$`, registeredExpenseWithStoreDiscount)
 	sc.Step(`^the expense shows the discount amount and description on the item it applies to$`, expenseShowsDiscount)
@@ -554,6 +556,32 @@ func bothDiscountsRecordedOnItem(description string) error {
 		return fmt.Errorf("expected 200 on review, got %d: %v", st.status, st.body)
 	}
 	return checkTwoDiscounts(st.body, description)
+}
+
+func registerExceedingItemDiscounts(amount, currency, itemDescription, lineTotal, _ string, discountTotal, _ string, otherLineTotal, _ string) error {
+	return post("/api/v1/expenses", map[string]any{
+		"occurred_at": "2026-10-05T16:53:34-03:00",
+		"amount":      amount,
+		"currency":    currency,
+		"description": "Store purchase",
+		"items": []map[string]any{
+			{
+				"description": itemDescription, "quantity": "1",
+				"unit_price": lineTotal, "line_total": lineTotal,
+				"discounts": []map[string]string{
+					{"amount": discountTotal, "description": "Store discount"},
+				},
+			},
+			{"description": "Other item", "quantity": "1", "unit_price": otherLineTotal, "line_total": otherLineTotal},
+		},
+	})
+}
+
+func rejectedDiscountsExceed() error {
+	if err := rejected(); err != nil {
+		return err
+	}
+	return fieldErrors("items[0].discounts", "exceeds_line_total")
 }
 
 func registeredExpenseWithStoreDiscount() error {

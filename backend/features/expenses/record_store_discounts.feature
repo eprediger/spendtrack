@@ -35,7 +35,6 @@ Feature: Record store discounts
     Then the expense is recorded
     And both discounts are recorded on the item "SOFT DRINK 2L"
 
-  @todo
   Scenario: Reject discounts that exceed the item's line total
     When the Financial Manager registers an expense with a charged total of 40.00 "ARS", item "SOFT DRINK 2L" line total of 100.00 "ARS" with item discounts totaling 110.00 "ARS", and another item line total of 50.00 "ARS"
     Then the registration is rejected because the discounts exceed that item's line total

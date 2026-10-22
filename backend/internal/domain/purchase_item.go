@@ -66,24 +66,34 @@ func NewPurchaseItem(description string, quantity, unitPrice, lineTotal *decimal
 	}
 
 	var itemDiscounts []ItemDiscount
+	var discountSum decimal.Decimal
+	discountsValid := true
 	for j, input := range discounts {
 		discountDescription := strings.TrimSpace(input.Description)
 		if discountDescription == "" {
 			errs = append(errs, FieldError{Field: fmt.Sprintf("discounts[%d].description", j), Code: "required", Detail: "description is required"})
+			discountsValid = false
 		}
 		var amount decimal.Decimal
-		valid := true
 		if input.Amount == nil {
 			errs = append(errs, FieldError{Field: fmt.Sprintf("discounts[%d].amount", j), Code: "required", Detail: "amount is required"})
-			valid = false
+			discountsValid = false
 		} else if !input.Amount.IsPositive() {
 			errs = append(errs, FieldError{Field: fmt.Sprintf("discounts[%d].amount", j), Code: "not_positive", Detail: "must be greater than 0"})
-			valid = false
+			discountsValid = false
 		} else {
 			amount = *input.Amount
-		}
-		if valid && discountDescription != "" {
+			discountSum = discountSum.Add(amount)
 			itemDiscounts = append(itemDiscounts, ItemDiscount{Description: discountDescription, Amount: amount})
+		}
+	}
+	if discountsValid {
+		limit := total
+		if limit.IsNegative() {
+			limit = decimal.Zero
+		}
+		if discountSum.GreaterThan(limit) {
+			errs = append(errs, FieldError{Field: "discounts", Code: "exceeds_line_total", Detail: "discounts cannot exceed the item line total"})
 		}
 	}
 

@@ -83,6 +83,48 @@ func TestNewPurchaseItemDiscounts(t *testing.T) {
 	}
 }
 
+func TestNewPurchaseItemDiscountCap(t *testing.T) {
+	item, errs := NewPurchaseItem("COCA COLA R 2L", dec("1"), dec("10.00"), dec("10.00"), []ItemDiscountInput{
+		{Description: "Promo", Amount: dec("10.00")},
+	})
+	require.Empty(t, errs, "a discount equal to the line total is allowed")
+	assert.Len(t, item.Discounts, 1)
+
+	tests := []struct {
+		name      string
+		lineTotal *decimal.Decimal
+		discounts []ItemDiscountInput
+	}{
+		{
+			name:      "sum above line total",
+			lineTotal: dec("10.00"),
+			discounts: []ItemDiscountInput{
+				{Description: "Promo", Amount: dec("6.00")},
+				{Description: "Promo 2", Amount: dec("5.00")},
+			},
+		},
+		{
+			name:      "any discount on a zero line total",
+			lineTotal: dec("0"),
+			discounts: []ItemDiscountInput{{Description: "Promo", Amount: dec("1.00")}},
+		},
+		{
+			name:      "any discount on a negative line total",
+			lineTotal: dec("-5.00"),
+			discounts: []ItemDiscountInput{{Description: "Promo", Amount: dec("1.00")}},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			item, errs := NewPurchaseItem("Item", dec("1"), tc.lineTotal, tc.lineTotal, tc.discounts)
+			assert.Empty(t, item)
+			require.Equal(t, []FieldError{
+				{Field: "discounts", Code: "exceeds_line_total", Detail: "discounts cannot exceed the item line total"},
+			}, errs)
+		})
+	}
+}
+
 func TestNewPurchaseItemValidation(t *testing.T) {
 	tests := []struct {
 		name        string

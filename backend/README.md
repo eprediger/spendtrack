@@ -106,6 +106,20 @@ testability, flexibility, maintainability and framework agnosticism
 - [ ] Environment configuration && deployment (Set up CI/CD pipeline)
 - [x] Implement proper error handling [(RFC 9457: Problem Details for HTTP APIs)](https://www.rfc-editor.org/rfc/rfc9457.html#name-the-problem-details-json-ob)
 - [ ] Add API rate limiting
+- [ ] Graceful shutdown improvements
+  - [x] Shutdown timeout (8s) below Docker's default 10s stop grace period
+    - Why 8s: the app is not deployed and there is no data about request durations. Docker Compose is the only platform. 8s is the longest drain that still leaves 2s for `pool.Close()` and process exit before Docker sends SIGKILL.
+    - Missing information to tune it:
+      - The deploy platform and its grace period (for example, Kubernetes `terminationGracePeriodSeconds`, 30s by default)
+      - Request durations per endpoint (p99 and maximum) from production metrics or performance tests
+      - The time that a load balancer needs to stop sending traffic to an instance that is shutting down
+  - [x] Release the signal handler after the first signal, so a second Ctrl-C stops the API at once
+  - [x] Fail the BDD suite when the API does not exit cleanly, so BDD coverage cannot drop silently
+  - [x] Log when shutdown starts and when it ends
+  - [ ] Cancel in-flight request contexts when the shutdown timeout expires
+    - Deferred: each request is one short database round trip, so no request is likely to run for 8s. `srv.Shutdown` does not cancel request contexts, so a slow query continues until the process exits.
+    - Do this when an endpoint can run longer than the shutdown timeout (for example, reports or imports). Give the server a `BaseContext` and cancel it when the timeout expires.
+  - [ ] Read the shutdown timeout from configuration when the app has more than one deploy target
 - [ ] Versioning (SemVer)
 - [ ] Vulnerability checks for dependencies
 - [ ] Monitoring && observability

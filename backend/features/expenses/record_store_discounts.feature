@@ -17,7 +17,6 @@ Feature: Record store discounts
     Then the expense is recorded
     And the discount is recorded on the item "COCA COLA R 2L"
 
-  @todo
   Scenario: Review the store discounts of an expense
     Given an expense with a store discount was registered
     When the Financial Manager reviews the expense

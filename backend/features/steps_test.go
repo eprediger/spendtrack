@@ -25,7 +25,7 @@ var st *state
 func initializeScenario(sc *godog.ScenarioContext) {
 	sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 		st = &state{}
-		_, err := pool.Exec(ctx, "TRUNCATE expense_items, expenses")
+		_, err := pool.Exec(ctx, "TRUNCATE expense_item_discounts, expense_items, expenses")
 		return ctx, err
 	})
 
@@ -74,6 +74,8 @@ func initializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the Financial Manager registers an expense with a charged total of (\S+) "([^"]*)" and item "([^"]*)" line total of (\S+) "([^"]*)" without discounts$`, registerItemizedExpenseNoDiscounts)
 	sc.Step(`^the Financial Manager registers an expense with charged total (\S+) "([^"]*)", item "([^"]*)" line total (\S+) "([^"]*)" with a store discount of (\S+) "([^"]*)" described as "([^"]*)", and other items totaling (\S+) "([^"]*)"$`, registerExpenseWithStoreDiscount)
 	sc.Step(`^the discount is recorded on the item "([^"]*)"$`, discountRecordedOnItem)
+	sc.Step(`^an expense with a store discount was registered$`, registeredExpenseWithStoreDiscount)
+	sc.Step(`^the expense shows the discount amount and description on the item it applies to$`, expenseShowsDiscount)
 	sc.Step(`^the registration is rejected because the itemized expense does not reconcile$`, rejectedNotReconciled)
 	sc.Step(`^the registration is rejected$`, rejected)
 	sc.Step(`^the system indicates "([^"]*)" is required$`, indicatesRequired)
@@ -470,6 +472,38 @@ func discountRecordedOnItem(description string) error {
 		return nil
 	}
 	return fmt.Errorf("no item %q in %v", description, st.body["items"])
+}
+
+func registeredExpenseWithStoreDiscount() error {
+	if err := registerExpenseWithStoreDiscount(
+		"59690.00", "ARS", "COCA COLA R 2L", "12750.00", "ARS",
+		"1700.00", "ARS", "2DO AL 40% LINEA COC", "48640.00", "ARS"); err != nil {
+		return err
+	}
+	return recordedExpense()
+}
+
+func expenseShowsDiscount() error {
+	if st.status != http.StatusOK {
+		return fmt.Errorf("expected 200, got %d: %v", st.status, st.body)
+	}
+	items, _ := st.body["items"].([]any)
+	for _, raw := range items {
+		item, _ := raw.(map[string]any)
+		if item["description"] != "COCA COLA R 2L" {
+			continue
+		}
+		discounts, _ := item["discounts"].([]any)
+		if len(discounts) != 1 {
+			return fmt.Errorf("expected 1 discount on the item, got %v", item["discounts"])
+		}
+		discount, _ := discounts[0].(map[string]any)
+		if discount["amount"] != "1700.00" || discount["description"] != "2DO AL 40% LINEA COC" {
+			return fmt.Errorf("unexpected discount %v", discount)
+		}
+		return nil
+	}
+	return fmt.Errorf("no item %q in %v", "COCA COLA R 2L", st.body["items"])
 }
 
 func rejectedNotReconciled() error {

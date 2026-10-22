@@ -47,6 +47,15 @@ func (r *expenseRepository) Save(ctx context.Context, e *domain.Expense) error {
 		if err != nil {
 			return err
 		}
+		for j, discount := range item.Discounts {
+			_, err := tx.Exec(ctx,
+				`INSERT INTO expense_item_discounts (expense_id, item_position, position, description, amount)
+				 VALUES ($1, $2, $3, $4, $5)`,
+				e.ID, i, j, discount.Description, numericText(discount.Amount))
+			if err != nil {
+				return err
+			}
+		}
 	}
 	return tx.Commit(ctx)
 }
@@ -105,6 +114,35 @@ func (r *expenseRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain
 	}
 	if !hasExpense {
 		return nil, domain.ErrNotFound
+	}
+
+	discountRows, err := r.pool.Query(ctx,
+		`SELECT item_position, description, amount FROM expense_item_discounts
+		 WHERE expense_id = $1 ORDER BY item_position, position`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer discountRows.Close()
+	for discountRows.Next() {
+		var (
+			itemPosition        int32
+			discountDescription string
+			discountAmount      decimal.Decimal
+		)
+		if err := discountRows.Scan(&itemPosition, &discountDescription, &discountAmount); err != nil {
+			return nil, err
+		}
+		if itemPosition < 0 || int(itemPosition) >= len(items) {
+			return nil, fmt.Errorf("stored expense %s has a discount on unknown item position %d", id, itemPosition)
+		}
+		amount := discountAmount
+		items[itemPosition].Discounts = append(items[itemPosition].Discounts, domain.ItemDiscountInput{
+			Description: discountDescription,
+			Amount:      &amount,
+		})
+	}
+	if err := discountRows.Err(); err != nil {
+		return nil, err
 	}
 	// Restore the registration offset stored separately from timestamptz before domain validation.
 	occurredAt := e.OccurredAt.In(time.FixedZone("", e.OccurredOffsetMinutes*60))

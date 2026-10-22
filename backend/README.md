@@ -64,6 +64,7 @@ testability, flexibility, maintainability and framework agnosticism
 
 ### 3. Coverage Reporting
 - Run with: `make coverage`
+- The total merges unit tests and the BDD-driven API binary
 
 ## Adding New Features
 

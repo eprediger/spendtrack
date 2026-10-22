@@ -62,7 +62,12 @@ func startAPI(t *testing.T, dbURL string) (string, func()) {
 	t.Helper()
 
 	bin := filepath.Join(t.TempDir(), "api")
-	out, err := exec.Command("go", "build", "-o", bin, "../cmd/api").CombinedOutput()
+	args := []string{"build", "-o", bin}
+	if os.Getenv("GOCOVERDIR") != "" {
+		args = append(args, "-cover", "-coverpkg=spendtrack/internal/...,spendtrack/cmd/...")
+	}
+	args = append(args, "../cmd/api")
+	out, err := exec.Command("go", args...).CombinedOutput()
 	require.NoError(t, err, "api build failed: %s", out)
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -86,7 +91,7 @@ func startAPI(t *testing.T, dbURL string) (string, func()) {
 			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				return base, func() {
-					_ = cmd.Process.Kill()
+					_ = cmd.Process.Signal(os.Interrupt)
 					_ = cmd.Wait()
 				}
 			}

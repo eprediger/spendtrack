@@ -1,4 +1,4 @@
-.PHONY: help build run up down logs db test-db lint lint-fix test bdd coverage ci clean
+.PHONY: help build run up down logs db test-db lint lint-fix test bdd coverage coverage-run ci clean
 
 DATABASE_URL ?= postgres://postgres:postgres@localhost:5432/spendtrack?sslmode=disable
 TEST_DATABASE_URL ?= postgres://postgres:postgres@localhost:5432/spendtrack_test?sslmode=disable
@@ -46,12 +46,17 @@ bdd: test-db ## Run BDD suite against the isolated test database
 	DATABASE_URL="$(TEST_DATABASE_URL)" go test ./features/...
 
 coverage: test-db ## Run all tests with coverage report
-	DATABASE_URL="$(TEST_DATABASE_URL)" go test -coverprofile=coverage.out -coverpkg=./internal/...,./cmd/... ./...
+	DATABASE_URL="$(TEST_DATABASE_URL)" $(MAKE) coverage-run
+
+coverage-run: ## Run unit + BDD coverage (needs DATABASE_URL in env)
+	rm -rf .coverdata && mkdir -p .coverdata/unit .coverdata/bdd
+	go test -cover -coverpkg=./internal/...,./cmd/... ./internal/... ./cmd/... -args -test.gocoverdir=$(abspath .coverdata/unit)
+	GOCOVERDIR=$(abspath .coverdata/bdd) go test ./features/...
+	go tool covdata textfmt -i=.coverdata/unit,.coverdata/bdd -o coverage.out
 	go tool cover -func=coverage.out | tail -1
 
 ci: lint test-db ## Lint + full test suite (used by hooks/CI)
-	DATABASE_URL="$(TEST_DATABASE_URL)" go test -coverprofile=coverage.out -coverpkg=./internal/...,./cmd/... ./...
-	go tool cover -func=coverage.out | tail -1
+	DATABASE_URL="$(TEST_DATABASE_URL)" $(MAKE) coverage-run
 
 clean: ## Stop the stack and delete volumes
 	docker compose down -v

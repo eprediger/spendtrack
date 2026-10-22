@@ -8,6 +8,7 @@
 
 # Coverage
 coverage.out
+.coverdata/
 
 # IDEs
 .vscode/

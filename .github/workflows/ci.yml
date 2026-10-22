@@ -51,8 +51,7 @@ jobs:
 
     - name: Test (unit + BDD)
       run: |
-        go test -coverprofile=coverage.out ./...
-        go tool cover -func=coverage.out | tail -1
+        make coverage-run
 
     - name: Send report to Coveralls
       uses: coverallsapp/github-action@v2

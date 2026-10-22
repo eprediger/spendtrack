@@ -73,6 +73,7 @@ func initializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the Financial Manager registers an expense that occurs in the future for (\S+) "([^"]*)" described as "([^"]*)"$`, registerFuture)
 	sc.Step(`^the Financial Manager registers an expense with a charged total of (\S+) "([^"]*)" and item "([^"]*)" line total of (\S+) "([^"]*)" without discounts$`, registerItemizedExpenseNoDiscounts)
 	sc.Step(`^the Financial Manager registers an expense with charged total (\S+) "([^"]*)", item "([^"]*)" line total (\S+) "([^"]*)" with a store discount of (\S+) "([^"]*)" described as "([^"]*)", and other items totaling (\S+) "([^"]*)"$`, registerExpenseWithStoreDiscount)
+	sc.Step(`^the Financial Manager registers an expense with a charged total of (\S+) "([^"]*)" and item "([^"]*)" line total of (\S+) "([^"]*)" with item discounts totaling (\S+) "([^"]*)"$`, registerItemDiscountsTotaling)
 	sc.Step(`^the discount is recorded on the item "([^"]*)"$`, discountRecordedOnItem)
 	sc.Step(`^an expense with a store discount was registered$`, registeredExpenseWithStoreDiscount)
 	sc.Step(`^the expense shows the discount amount and description on the item it applies to$`, expenseShowsDiscount)
@@ -472,6 +473,24 @@ func discountRecordedOnItem(description string) error {
 		return nil
 	}
 	return fmt.Errorf("no item %q in %v", description, st.body["items"])
+}
+
+func registerItemDiscountsTotaling(amount, currency, itemDescription, lineTotal, _ string, discountTotal, _ string) error {
+	return post("/api/v1/expenses", map[string]any{
+		"occurred_at": "2026-10-05T16:53:34-03:00",
+		"amount":      amount,
+		"currency":    currency,
+		"description": "Store purchase",
+		"items": []map[string]any{
+			{
+				"description": itemDescription, "quantity": "1",
+				"unit_price": lineTotal, "line_total": lineTotal,
+				"discounts": []map[string]string{
+					{"amount": discountTotal, "description": "Store discount"},
+				},
+			},
+		},
+	})
 }
 
 func registeredExpenseWithStoreDiscount() error {

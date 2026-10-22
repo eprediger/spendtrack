@@ -39,7 +39,6 @@ Feature: Record store discounts
     When the Financial Manager registers an expense with a charged total of 40.00 "ARS", item "SOFT DRINK 2L" line total of 100.00 "ARS" with item discounts totaling 110.00 "ARS", and another item line total of 50.00 "ARS"
     Then the registration is rejected because the discounts exceed that item's line total
 
-  @todo
   Scenario Outline: Invalid item discount data is rejected
     When the Financial Manager registers an expense with an item discount whose "<field>" is "<value>"
     Then the registration is rejected

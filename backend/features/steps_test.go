@@ -78,6 +78,8 @@ func initializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^both discounts are recorded on the item "([^"]*)"$`, bothDiscountsRecordedOnItem)
 	sc.Step(`^the Financial Manager registers an expense with a charged total of (\S+) "([^"]*)", item "([^"]*)" line total of (\S+) "([^"]*)" with item discounts totaling (\S+) "([^"]*)", and another item line total of (\S+) "([^"]*)"$`, registerExceedingItemDiscounts)
 	sc.Step(`^the registration is rejected because the discounts exceed that item's line total$`, rejectedDiscountsExceed)
+	sc.Step(`^the Financial Manager registers an expense with an item discount whose "([^"]*)" is "([^"]*)"$`, registerInvalidItemDiscount)
+	sc.Step(`^the system indicates the item discount "([^"]*)" is (required|invalid|not positive)$`, indicatesItemDiscountError)
 	sc.Step(`^the discount is recorded on the item "([^"]*)"$`, discountRecordedOnItem)
 	sc.Step(`^an expense with a store discount was registered$`, registeredExpenseWithStoreDiscount)
 	sc.Step(`^the expense shows the discount amount and description on the item it applies to$`, expenseShowsDiscount)
@@ -582,6 +584,33 @@ func rejectedDiscountsExceed() error {
 		return err
 	}
 	return fieldErrors("items[0].discounts", "exceeds_line_total")
+}
+
+func registerInvalidItemDiscount(field, value string) error {
+	discount := map[string]string{"amount": "5.00", "description": "Store discount"}
+	key := strings.ReplaceAll(field, " ", "_")
+	if value == "" {
+		delete(discount, key)
+	} else {
+		discount[key] = value
+	}
+	return post("/api/v1/expenses", map[string]any{
+		"occurred_at": "2026-10-05T16:53:34-03:00",
+		"amount":      "95.00",
+		"currency":    "ARS",
+		"description": "Store purchase",
+		"items": []map[string]any{
+			{
+				"description": "SOFT DRINK 2L", "quantity": "1",
+				"unit_price": "100.00", "line_total": "100.00",
+				"discounts": []map[string]string{discount},
+			},
+		},
+	})
+}
+
+func indicatesItemDiscountError(field, code string) error {
+	return fieldErrors("items[0].discounts[0]."+strings.ReplaceAll(field, " ", "_"), strings.ReplaceAll(code, " ", "_"))
 }
 
 func registeredExpenseWithStoreDiscount() error {

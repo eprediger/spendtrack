@@ -111,6 +111,18 @@ func TestWithParseErrors(t *testing.T) {
 	assert.Equal(t, fields, withParseErrors(fields, nil))
 }
 
+func TestWithParseErrorsAppendsParseErrorsWithoutDomainMatch(t *testing.T) {
+	fields := []domain.FieldError{
+		{Field: "currency", Code: "unsupported_currency", Detail: "currency is not supported"},
+	}
+	parseErrors := []domain.FieldError{
+		{Field: "items[0].quantity", Code: "invalid", Detail: "must be a decimal number"},
+	}
+
+	got := withParseErrors(fields, parseErrors)
+	assert.Equal(t, []domain.FieldError{fields[0], parseErrors[0]}, got)
+}
+
 func TestWithParseErrorsHandlesManyInvalidItemsQuickly(t *testing.T) {
 	const count = 20_000
 	fields := make([]domain.FieldError, count)
@@ -190,6 +202,24 @@ func TestCreateItemsNotAnArray(t *testing.T) {
 	assert.Equal(t, problemType+"malformed-json", got.Type)
 	assert.Equal(t, "Malformed JSON", got.Title)
 	assert.Equal(t, http.StatusBadRequest, got.Status)
+}
+
+func TestCreateRejectsOccurredAtWithoutOffset(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/expenses", strings.NewReader(
+		`{"occurred_at":"2026-09-20T14:30:00","amount":"12.00","currency":"USD","description":"Lunch"}`,
+	))
+	recorder := httptest.NewRecorder()
+
+	NewExpenseHandler(nil).Create(recorder, req)
+
+	require.Equal(t, http.StatusUnprocessableEntity, recorder.Code)
+	assert.Equal(t, "application/problem+json", recorder.Header().Get("Content-Type"))
+	var got problem
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &got))
+	assert.Equal(t, problemType+"validation-failed", got.Type)
+	assert.Equal(t, []domain.FieldError{
+		{Field: "occurred_at", Code: "invalid", Detail: "must be RFC 3339 with explicit offset"},
+	}, got.Errors)
 }
 
 func TestCreateRejectsTrailingJSON(t *testing.T) {

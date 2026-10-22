@@ -92,7 +92,10 @@ func startAPI(t *testing.T, dbURL string) (string, func()) {
 			if resp.StatusCode == http.StatusOK {
 				return base, func() {
 					_ = cmd.Process.Signal(os.Interrupt)
-					_ = cmd.Wait()
+					// A dirty exit also means the binary wrote no coverage counters.
+					if err := cmd.Wait(); err != nil {
+						t.Errorf("api did not shut down cleanly: %v", err)
+					}
 				}
 			}
 		}
